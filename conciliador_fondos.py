@@ -625,15 +625,20 @@ if check_password():
                             # --- HOJA 2: CONCILIACIÓN ---
                             df_reporte_conciliados_prep = df_conciliados.copy()
                             df_reporte_conciliados_prep.rename(columns={'Grupo_Conciliado': 'Conciliación'}, inplace=True)
+
                             columnas_reporte_conciliados = ['Asiento', 'Referencia', 'Fecha', 'Débito Bolivar', 'Crédito Bolivar', 'Débito Dolar', 'Crédito Dolar', 'Conciliación']
-                            df_reporte_conciliados_final = df_reporte_conciliados_prep[columnas_reporte_conciliados].sort_values(by='Fecha')
+                            
+                            df_reporte_conciliados_final = df_reporte_conciliados_prep.reindex(columns=columnas_reporte_conciliados).sort_values(by='Fecha')
+                            
+                            # FIX DE FORMATO DE FECHA PARA EXCEL
                             if 'Fecha' in df_reporte_conciliados_final.columns:
                                 df_reporte_conciliados_final['Fecha'] = pd.to_datetime(df_reporte_conciliados_final['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y').fillna('')
-                            df_reporte_conciliados_final.to_excel(writer, sheet_name='Conciliación', index=False)
                             
-                            worksheet_conciliados = writer.sheets['Conciliación']
+                            # Creamos la hoja de cálculo
+                            worksheet_conciliados = workbook.add_worksheet('Conciliación')
+                            # Escribimos los datos SIN encabezado, empezando en la fila 6 (índice 5)
                             df_reporte_conciliados_final.to_excel(writer, sheet_name='Conciliación', index=False, header=False, startrow=5)
-                            
+                                                                  
                             # --- ESCRITURA DEL NUEVO ENCABEZADO PARA LA HOJA DE CONCILIACIÓN ---
                             num_cols_conc = len(df_reporte_conciliados_final.columns)
                             if num_cols_conc > 0:
@@ -717,3 +722,4 @@ if st.session_state.processing_complete:
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(st.session_state.df_conciliados)
+

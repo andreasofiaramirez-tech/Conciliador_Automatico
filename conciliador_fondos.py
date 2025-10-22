@@ -152,7 +152,6 @@ def conciliar_diferencia_cambio(df, log_messages):
         df.loc[indices, 'Grupo_Conciliado'] = 'AUTOMATICO_DIF_CAMBIO_SALDO'
         log_messages.append(f"✔️ Fase Auto: {total_conciliados} conciliados por ser 'Diferencia en Cambio/Saldo'.")
     return total_conciliados
-    pass
 
 def conciliar_ajuste_automatico(df, log_messages):
     df_a_conciliar = df[(df['Clave_Grupo'] == 'GRUPO_AJUSTE') & (~df['Conciliado'])]
@@ -163,7 +162,6 @@ def conciliar_ajuste_automatico(df, log_messages):
         df.loc[indices, 'Grupo_Conciliado'] = 'AUTOMATICO_AJUSTE'
         log_messages.append(f"✔️ Fase Auto: {total_conciliados} conciliados por ser 'AJUSTE'.")
     return total_conciliados
-    pass
 
 def conciliar_pares_exactos_cero(df, clave_grupo, fase_name, log_messages):
     TOLERANCIA_CERO = 0.0
@@ -195,7 +193,6 @@ def conciliar_pares_exactos_cero(df, clave_grupo, fase_name, log_messages):
                     break 
     if total_conciliados > 0: log_messages.append(f"✔️ {fase_name}: {total_conciliados} movimientos conciliados.")
     return total_conciliados
-    pass
 
 def conciliar_pares_exactos_por_referencia(df, clave_grupo, fase_name, log_messages):
     df_pendientes = df[(df['Clave_Grupo'] == clave_grupo) & (~df['Conciliado'])].copy()
@@ -228,7 +225,6 @@ def conciliar_pares_exactos_por_referencia(df, clave_grupo, fase_name, log_messa
                 creditos_usados.add(mejor_match_idx)
     if total_conciliados > 0: log_messages.append(f"✔️ {fase_name}: {total_conciliados} movimientos conciliados.")
     return total_conciliados
-    pass
 
 def cruzar_pares_simples(df, clave_normalizada, fase_name, log_messages):
     df_pendientes = df[~df['Conciliado']].copy()
@@ -263,7 +259,6 @@ def cruzar_pares_simples(df, clave_normalizada, fase_name, log_messages):
     if 'Monto_BS_Abs_Redondeado' in df.columns: df.drop(columns=['Monto_BS_Abs_Redondeado'], inplace=True, errors='ignore')
     if total_conciliados > 0: log_messages.append(f"✔️ {fase_name}: {total_conciliados} movimientos conciliados.")
     return total_conciliados
-    pass
 
 def cruzar_grupos_por_criterio(df, clave_normalizada, agrupacion_col, grupo_prefix, fase_name, log_messages):
     df_pendientes = df[(df['Clave_Normalizada'] == clave_normalizada) & (~df['Conciliado'])].copy()
@@ -282,7 +277,6 @@ def cruzar_grupos_por_criterio(df, clave_normalizada, agrupacion_col, grupo_pref
     total_conciliados = len(indices_conciliados)
     if total_conciliados > 0: log_messages.append(f"✔️ {fase_name}: {total_conciliados} movimientos conciliados.")
     return total_conciliados
-    pass
 
 def conciliar_lote_por_grupo(df, clave_grupo, fase_name, log_messages):
     log_messages.append(f"\n--- {fase_name} ---")
@@ -298,7 +292,6 @@ def conciliar_lote_por_grupo(df, clave_grupo, fase_name, log_messages):
         log_messages.append(f"✔️ {fase_name}: {total_conciliados} movimientos conciliados como lote.")
         return total_conciliados
     return 0
-    pass
 
 def conciliar_grupos_globales_por_referencia(df, log_messages):
     log_messages.append(f"\n--- FASE GLOBAL N-a-N (Cruce por Referencia Literal) ---")
@@ -316,7 +309,6 @@ def conciliar_grupos_globales_por_referencia(df, log_messages):
             total_conciliados += len(indices_a_conciliar)
     if total_conciliados > 0: log_messages.append(f"✔️ Fase Global N-a-N: {total_conciliados} movimientos conciliados.")
     return total_conciliados
-    pass
 
 def conciliar_pares_globales_remanentes(df, log_messages):
     log_messages.append(f"\n--- FASE GLOBAL 1-a-1 (Cruce de pares remanentes) ---")
@@ -384,7 +376,6 @@ def conciliar_grupos_complejos_remanentes(df, log_messages):
         if not continuar_ciclo: break
     if total_conciliados_fase > 0: log_messages.append(f"✔️ Fase Grupos Complejos: {total_conciliados_fase} movimientos conciliados.")
     return total_conciliados_fase
-    pass
 
 def conciliar_gran_total_final(df, log_messages):
     log_messages.append(f"\n--- FASE FINAL (Revisión Gran Total) ---")
@@ -399,7 +390,6 @@ def conciliar_gran_total_final(df, log_messages):
     else:
         log_messages.append(f"ℹ️ Fase Final: No se concilió. Suma de remanentes es {suma_gran_total_bs:.2f} Bs.")
         return 0
-    pass
 
 # --- (C) Funciones Principales de Cada Estrategia ---
 def run_conciliation_fondos_en_transito (df, log_messages):
@@ -538,7 +528,7 @@ if check_password():
         if st.button("▶️ Iniciar Conciliación", type="primary", use_container_width=True):
             with st.spinner('Procesando... por favor espere.'):
                 log_messages = []
-                try:
+            try:
                     # 1. Cargar y Limpiar Datos
                     df_full = cargar_y_limpiar_datos(uploaded_actual, uploaded_anterior, log_messages)
                 
@@ -641,7 +631,8 @@ if check_password():
                             worksheet_conciliados.write(fila_excel_dif, 1, 'SALDO NETO (DEBITO - CREDITO)', formato_diferencia_text)
                             worksheet_conciliados.write(fila_excel_dif, 3, diferencia_bs, formato_diferencia_num_bs)
                             worksheet_conciliados.write(fila_excel_dif, 5, diferencia_usd, formato_diferencia_num_usd)
-                    
+                            pass
+                        
                         output_excel.seek(0)
                     
                         # --- GUARDADO EN SESSION_STATE ---
@@ -653,8 +644,11 @@ if check_password():
                         st.session_state.df_conciliados = df_conciliados
                     else:
                         st.session_state.processing_complete = False
-                except Exception as e:
-                    st.error(f"❌ Ocurrió un error crítico durante el proceso: {e}")
+                        
+            except Exception as e:
+                st.error(f"❌ Ocurrió un error crítico durante el proceso: {e}")
+                import traceback
+                st.code(traceback.format_exc())
                 st.session_state.processing_complete = False
 
 # --- 6. Sección de Resultados ---
@@ -679,6 +673,4 @@ if st.session_state.processing_complete:
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(st.session_state.df_conciliados)
-
-
 

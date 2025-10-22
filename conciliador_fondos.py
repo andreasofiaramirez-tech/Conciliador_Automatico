@@ -6,6 +6,46 @@ import xlsxwriter
 from itertools import combinations
 from io import BytesIO  # Necesario para manejar archivos en memoria
 
+def check_password():
+    """Returns `True` if the user had the correct password."""
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if st.session_state["password"] == st.secrets["password"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # No guardar la contraseña en el estado
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # Primera ejecución, muestra el campo de contraseña.
+        st.text_input(
+            "Password", type="password", on_change=password_entered, key="password"
+        )
+        return False
+    elif not st.session_state["password_correct"]:
+        # Contraseña incorrecta, muestra el campo de nuevo con un error.
+        st.text_input(
+            "Password", type="password", on_change=password_entered, key="password"
+        )
+        st.error("😕 Contraseña incorrecta.")
+        return False
+    else:
+        # Contraseña correcta.
+        return True
+
+# --- MODIFICA EL FLUJO PRINCIPAL DE TU app.py ASÍ ---
+
+st.title('🤖 Herramienta de Conciliación Automática')
+
+if check_password():
+    # Todo tu código de la aplicación va aquí DENTRO del if.
+    # Desde st.markdown(...) hasta el final.
+    
+    st.markdown("""
+    Esta aplicación automatiza el proceso de conciliación...
+    """)
+
 # --- Configuración de la página de Streamlit ---
 st.set_page_config(
     page_title="Conciliador Automático",
@@ -607,4 +647,5 @@ if st.session_state.processing_complete:
     st.subheader("Previsualización de Saldos Pendientes")
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
+
     st.dataframe(st.session_state.df_conciliados)

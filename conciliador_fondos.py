@@ -6,46 +6,6 @@ import xlsxwriter
 from itertools import combinations
 from io import BytesIO  # Necesario para manejar archivos en memoria
 
-def check_password():
-    """Returns `True` if the user had the correct password."""
-
-    def password_entered():
-        """Checks whether a password entered by the user is correct."""
-        if st.session_state["password"] == st.secrets["password"]:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]  # No guardar la contraseña en el estado
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        # Primera ejecución, muestra el campo de contraseña.
-        st.text_input(
-            "Password", type="password", on_change=password_entered, key="password"
-        )
-        return False
-    elif not st.session_state["password_correct"]:
-        # Contraseña incorrecta, muestra el campo de nuevo con un error.
-        st.text_input(
-            "Password", type="password", on_change=password_entered, key="password"
-        )
-        st.error("😕 Contraseña incorrecta.")
-        return False
-    else:
-        # Contraseña correcta.
-        return True
-
-# --- MODIFICA EL FLUJO PRINCIPAL DE TU app.py ASÍ ---
-
-st.title('🤖 Herramienta de Conciliación Automática')
-
-if check_password():
-    # Todo tu código de la aplicación va aquí DENTRO del if.
-    # Desde st.markdown(...) hasta el final.
-    
-    st.markdown("""
-    Esta aplicación automatiza el proceso de conciliación...
-    """)
-
 # --- Configuración de la página de Streamlit ---
 st.set_page_config(
     page_title="Conciliador Automático",
@@ -53,25 +13,8 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title('🤖 Herramienta de Conciliación Automática')
-st.markdown("""
-Esta aplicación automatiza el proceso de conciliación de la cuenta 'Fondos en Tránsito'. 
-Por favor, cargue los dos archivos CSV requeridos para iniciar el proceso. La lógica de conciliación es una réplica exacta del script original.
-""")
-
-# --- 1. Inicialización del Estado de la Aplicación (BLOQUE CORREGIDO) ---
-# Este bloque se asegura de que todas las variables de estado existan desde el principio.
-if 'processing_complete' not in st.session_state:
-    st.session_state.processing_complete = False
-    st.session_state.log_messages = []
-    st.session_state.csv_output = None
-    st.session_state.excel_output = None
-    st.session_state.df_saldos_abiertos = pd.DataFrame()
-    st.session_state.df_conciliados = pd.DataFrame()
-
+# --- BLOQUE DE FUNCIONES DE LÓGICA DE DATOS ---
 # --- 1. Definición de Constantes y Lógica del Script Original ---
-
-# Se mantiene la constante para la lógica, aunque no se usa para nombres de archivo
 TOLERANCIAS_MAX_BS = 2.00 
 
 # --- 2. Bloque de Funciones del Script Original ---
@@ -493,18 +436,66 @@ def run_conciliation_process(df, log_messages):
     log_messages.append("\n--- PROCESO DE CONCILIACIÓN FINALIZADO ---")
     return df
 
-# --- 4. Interfaz Gráfica de Streamlit  ---
-# Columnas para la carga de archivos
+
+# --- FUNCIÓN DE SEGURIDAD (EL "GUARDIA") ---
+
+def check_password():
+    """Returns `True` if the user had the correct password."""
+    def password_entered():
+        if st.session_state["password"] == st.secrets["password"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.text_input("Contraseña", type="password", on_change=password_entered, key="password")
+        st.markdown("---")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input("Contraseña", type="password", on_change=password_entered, key="password")
+        st.error("😕 Contraseña incorrecta.")
+        st.markdown("---")
+        return False
+    else:
+        return True
+
+    
+# --- FLUJO PRINCIPAL DE LA APLICACIÓN ---
+
+st.title('🤖 Herramienta de Conciliación Automática')
+
+# 1. PRIMERO, VERIFICAMOS LA CONTRASEÑA
+if check_password():
+    
+    # 2. SOLO SI LA CONTRASEÑA ES CORRECTA, CONSTRUIMOS EL RESTO DE LA APP
+    
+    st.markdown("""
+    Esta aplicación automatiza el proceso de conciliación de la cuenta 'Fondos en Tránsito'.
+    """)
+
+    # Inicialización del Estado
+    if 'processing_complete' not in st.session_state:
+        st.session_state.processing_complete = False
+        st.session_state.log_messages = []
+        st.session_state.csv_output = None
+        st.session_state.excel_output = None
+        st.session_state.df_saldos_abiertos = pd.DataFrame()
+        st.session_state.df_conciliados = pd.DataFrame()
+    
+    # Interfaz de Carga de Archivos
 col1, col2 = st.columns(2)
 with col1:
     uploaded_actual = st.file_uploader("1. Cargar archivo del mes actual (.csv)", type="csv")
 with col2:
     uploaded_anterior = st.file_uploader("2. Cargar archivo de saldos anteriores (.csv)", type="csv")
 
+    # Lógica del Botón y Procesamiento
 if uploaded_actual and uploaded_anterior:
     
     if st.button("▶️ Iniciar Conciliación", type="primary", use_container_width=True):
         with st.spinner('Procesando... por favor espere.'):
+            pass 
             log_messages = []
             try:
                 # 1. Cargar y Limpiar Datos
@@ -630,7 +621,7 @@ if uploaded_actual and uploaded_anterior:
 if st.session_state.processing_complete:
     st.success("✅ ¡Conciliación completada con éxito!")
     
-    # (El resto del código para mostrar resultados y descargas permanece igual)
+    pass 
     res_col1, res_col2 = st.columns(2)
     with res_col1:
         st.metric("Movimientos Conciliados", len(st.session_state.df_conciliados))
@@ -647,5 +638,5 @@ if st.session_state.processing_complete:
     st.subheader("Previsualización de Saldos Pendientes")
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
-
     st.dataframe(st.session_state.df_conciliados)
+

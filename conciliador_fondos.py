@@ -476,12 +476,23 @@ if check_password():
     Esta aplicación automatiza el proceso de conciliación de la cuenta 'Fondos en Tránsito'.
     """)
     
+    CASA_OPTIONS = ["FEBECA, C.A", "MAYOR BEVAL, C.A", "PRISMA, C.A", "FEBECA, C.A (QUINCALLA)"]
+    CUENTA_OPTIONS = [
+                    "111.04.1001 - Fondos en Tránsito", 
+                    "212.07.6009 - Devoluciones a Proveed.en el País en ME"
+                    ]
+
+    casa_seleccionada = st.selectbox("**1. Seleccione la Empresa (Casa):**", CASA_OPTIONS)
+    cuenta_seleccionada = st.selectbox("**2. Seleccione la Cuenta Contable:**", CUENTA_OPTIONS)
+    
+    
     # Interfaz de Carga de Archivos
     col1, col2 = st.columns(2)
     with col1:
-        uploaded_actual = st.file_uploader("1. Cargar archivo del mes actual (.csv)", type="csv")
+        uploaded_actual = st.file_uploader("Archivo del mes actual (.csv)", type="csv", label_visibility="collapsed")
     with col2:
-        uploaded_anterior = st.file_uploader("2. Cargar archivo de saldos anteriores (.csv)", type="csv")
+        uploaded_anterior = st.file_uploader("Archivo de saldos anteriores (.csv)", type="csv", label_visibility="collapsed")
+
 
     # Lógica del Botón y Procesamiento
     if uploaded_actual and uploaded_anterior:
@@ -518,7 +529,19 @@ if check_password():
                     with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
                         workbook = writer.book
                         
-                        # --- DEFINICIÓN DE FORMATOS (DE TU SCRIPT ORIGINAL) ---
+                        # --- CÁLCULO DE LA FECHA PARA EL ENCABEZADO ---
+                        # Encontramos la fecha máxima en los datos cargados para determinar el período
+                        fecha_maxima = df_full['Fecha'].max()
+                        #   Calculamos el último día de ese mes
+                        ultimo_dia_mes = fecha_maxima + pd.offsets.MonthEnd(0)
+                        # Formateamos la fecha en español
+                        meses_es = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
+                        texto_fecha_encabezado = f"PARA EL {ultimo_dia_mes.day} DE {meses_es[ultimo_dia_mes.month].upper()} DE {ultimo_dia_mes.year}"
+                        
+                        # --- DEFINICIÓN DE FORMATOS ---
+                        formato_encabezado_empresa = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_size': 14})
+                        formato_encabezado_sub = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_size': 11})
+                        formato_header_tabla = workbook.add_format({'bold': True, 'text_wrap': True, 'valign': 'top', 'fg_color': '#D9EAD3', 'border': 1})
                         formato_bs = workbook.add_format({'num_format': '#,##0.00'})
                         formato_usd = workbook.add_format({'num_format': '$#,##0.00'})
                         formato_tasa = workbook.add_format({'num_format': '#,##0.0000'})
@@ -543,8 +566,29 @@ if check_password():
                         df_reporte_pendientes_final = df_reporte_pendientes_prep[columnas_reporte_pendientes].sort_values(by='Fecha')
                         if 'Fecha' in df_reporte_pendientes_final.columns:
                             df_reporte_pendientes_final['Fecha'] = pd.to_datetime(df_reporte_pendientes_final['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y').fillna('')
-                        df_reporte_pendientes_final.to_excel(writer, sheet_name='111.04.1001', index=False)
+                        
+                        # Escribimos los datos SIN encabezado, empezando en la fila 5 (índice 4)
+                        df_reporte_pendientes_final.to_excel(writer, sheet_name='111.04.1001', index=False, header=False, startrow=4)
                         worksheet_pendientes = writer.sheets['111.04.1001']
+                        
+                        # --- ESCRITURA DEL NUEVO ENCABEZADO ---
+                        
+                        num_cols = len(df_reporte_pendientes_final.columns)
+                        
+                        # Línea 1: Nombre de la Empresa
+                        worksheet_pendientes.merge_range(0, 0, 0, num_cols - 1, casa_seleccionada, formato_encabezado_empresa)
+                        
+                        # Línea 2: Especificación de la Cuenta
+                        worksheet_pendientes.merge_range(1, 0, 1, num_cols - 1, f"ESPECIFICACION DE LA CUENTA {cuenta_seleccionada.split(' - ')[0]}", formato_encabezado_sub)
+                        
+                        # Línea 3: Período
+                        worksheet_pendientes.merge_range(2, 0, 2, num_cols - 1, texto_fecha_encabezado, formato_encabezado_sub)
+                        
+                        # Escribimos manualmente los encabezados de la tabla en la fila 5 (índice 4)
+                        for col_num, value in enumerate(df_reporte_pendientes_final.columns.values):
+                            worksheet_pendientes.write(4, col_num, value, formato_header_tabla)
+
+                        # Aplicamos formatos de columnas y totales
                         worksheet_pendientes.hide_gridlines(2)
                         worksheet_pendientes.set_column('A:A', 15); worksheet_pendientes.set_column('B:B', 60); worksheet_pendientes.set_column('C:C', 12)
                         worksheet_pendientes.set_column('D:D', 18, formato_usd); worksheet_pendientes.set_column('E:E', 12, formato_tasa); worksheet_pendientes.set_column('F:F', 18, formato_bs)
@@ -632,4 +676,5 @@ if st.session_state.processing_complete:
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(st.session_state.df_conciliados)
+
 

@@ -556,92 +556,119 @@ if check_password():
                         with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
                             workbook = writer.book
                         
-                        # --- DEFINICIÓN DE FORMATOS (DE TU SCRIPT ORIGINAL) ---
-                        formato_bs = workbook.add_format({'num_format': '#,##0.00'})
-                        formato_usd = workbook.add_format({'num_format': '$#,##0.00'})
-                        formato_tasa = workbook.add_format({'num_format': '#,##0.0000'})
-                        formato_total_pend_text = workbook.add_format({'bold': True, 'bg_color': '#D9EAD3', 'border': 1})
-                        formato_total_pend_bs = workbook.add_format({'bold': True, 'bg_color': '#D9EAD3', 'border': 1, 'num_format': '#,##0.00'})
-                        formato_total_pend_usd = workbook.add_format({'bold': True, 'bg_color': '#D9EAD3', 'border': 1, 'num_format': '$#,##0.00'})
-                        formato_total_conc_text = workbook.add_format({'bold': True, 'bg_color': '#F4CCCC', 'border': 1})
-                        formato_total_conc_num_bs = workbook.add_format({'bold': True, 'bg_color': '#F4CCCC', 'border': 1, 'num_format': '#,##0.00'})
-                        formato_total_conc_num_usd = workbook.add_format({'bold': True, 'bg_color': '#F4CCCC', 'border': 1, 'num_format': '$#,##0.00'})
-                        formato_diferencia_text = workbook.add_format({'bold': True, 'border': 1})
-                        formato_diferencia_num_bs = workbook.add_format({'bold': True, 'border': 1, 'num_format': '#,##0.00'})
-                        formato_diferencia_num_usd = workbook.add_format({'bold': True, 'border': 1, 'num_format': '$#,##0.00'})
-
-                        # --- HOJA 1: PENDIENTES ---
-                        df_reporte_pendientes_prep = df_saldos_abiertos.copy()
-                        df_reporte_pendientes_prep['Monto Dólar'] = df_reporte_pendientes_prep['Monto_USD']
-                        df_reporte_pendientes_prep['Bs.'] = df_reporte_pendientes_prep['Monto_BS']
-                        monto_dolar_abs = np.abs(df_reporte_pendientes_prep['Monto Dólar'])
-                        monto_bolivar_abs = np.abs(df_reporte_pendientes_prep['Bs.'])
-                        df_reporte_pendientes_prep['Tasa'] = np.where(monto_dolar_abs != 0, monto_bolivar_abs / monto_dolar_abs, np.nan)
-                        columnas_reporte_pendientes = ['Asiento', 'Referencia', 'Fecha', 'Monto Dólar', 'Tasa', 'Bs.']
-                        df_reporte_pendientes_final = df_reporte_pendientes_prep[columnas_reporte_pendientes].sort_values(by='Fecha')
-                        if 'Fecha' in df_reporte_pendientes_final.columns:
-                            df_reporte_pendientes_final['Fecha'] = pd.to_datetime(df_reporte_pendientes_final['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y').fillna('')
-                        df_reporte_pendientes_final.to_excel(writer, sheet_name='111.04.1001', index=False)
-                        worksheet_pendientes = writer.sheets['111.04.1001']
-                        worksheet_pendientes.hide_gridlines(2)
-                        worksheet_pendientes.set_column('A:A', 15); worksheet_pendientes.set_column('B:B', 60); worksheet_pendientes.set_column('C:C', 12)
-                        worksheet_pendientes.set_column('D:D', 18, formato_usd); worksheet_pendientes.set_column('E:E', 12, formato_tasa); worksheet_pendientes.set_column('F:F', 18, formato_bs)
+                            # --- CÁLCULO DE LA FECHA PARA EL ENCABEZADO ---
+                            fecha_maxima = df_full['Fecha'].max()
+                            ultimo_dia_mes = fecha_maxima + pd.offsets.MonthEnd(0)
+                            meses_es = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
+                            texto_fecha_encabezado = f"PARA EL {ultimo_dia_mes.day} DE {meses_es[ultimo_dia_mes.month].upper()} DE {ultimo_dia_mes.year}"
                         
-                        total_dolar_pend = df_reporte_pendientes_final['Monto Dólar'].sum()
-                        total_bs_pend = df_reporte_pendientes_final['Bs.'].sum()
-                        if not df_reporte_pendientes_final.empty:
-                            fila_excel_sum = len(df_reporte_pendientes_final) + 1
-                            worksheet_pendientes.write(fila_excel_sum, 0, 'SUMA', formato_total_pend_text)
-                            worksheet_pendientes.write(fila_excel_sum, 1, 'TOTAL SALDOS ABIERTOS', formato_total_pend_text)
-                            worksheet_pendientes.write(fila_excel_sum, 3, total_dolar_pend, formato_total_pend_usd)
-                            worksheet_pendientes.write(fila_excel_sum, 5, total_bs_pend, formato_total_pend_bs)
-
-                        # --- HOJA 2: CONCILIACIÓN ---
-                        df_reporte_conciliados_prep = df_conciliados.copy()
-                        df_reporte_conciliados_prep.rename(columns={'Grupo_Conciliado': 'Conciliación'}, inplace=True)
-                        columnas_reporte_conciliados = ['Asiento', 'Referencia', 'Fecha', 'Débito Bolivar', 'Crédito Bolivar', 'Débito Dolar', 'Crédito Dolar', 'Conciliación']
-                        df_reporte_conciliados_final = df_reporte_conciliados_prep[columnas_reporte_conciliados].sort_values(by='Fecha')
-                        if 'Fecha' in df_reporte_conciliados_final.columns:
-                            df_reporte_conciliados_final['Fecha'] = pd.to_datetime(df_reporte_conciliados_final['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y').fillna('')
-                        
-                        df_reporte_conciliados_final.to_excel(writer, sheet_name='Conciliación', index=False)
-                        worksheet_conciliados = writer.sheets['Conciliación']
-                        worksheet_conciliados.hide_gridlines(2)
-                        worksheet_conciliados.set_column('A:A', 15); worksheet_conciliados.set_column('B:B', 60); worksheet_conciliados.set_column('C:C', 12)
-                        worksheet_conciliados.set_column('D:E', 15, formato_bs); worksheet_conciliados.set_column('F:G', 15, formato_usd)
-                        worksheet_conciliados.set_column('H:H', 35)
-
-                        total_debito_bs = df_reporte_conciliados_final['Débito Bolivar'].sum()
-                        total_credito_bs = df_reporte_conciliados_final['Crédito Bolivar'].sum()
-                        total_debito_usd = df_reporte_conciliados_final['Débito Dolar'].sum()
-                        total_credito_usd = df_reporte_conciliados_final['Crédito Dolar'].sum()
-                        diferencia_bs = total_debito_bs - total_credito_bs
-                        diferencia_usd = total_debito_usd - total_credito_usd
-                        if not df_reporte_conciliados_final.empty:
-                            fila_excel_sum = len(df_reporte_conciliados_final) + 1
-                            worksheet_conciliados.write(fila_excel_sum, 0, 'SUMA', formato_total_conc_text)
-                            worksheet_conciliados.write(fila_excel_sum, 1, 'TOTAL CRUZADOS', formato_total_conc_text)
-                            worksheet_conciliados.write(fila_excel_sum, 3, total_debito_bs, formato_total_conc_num_bs)
-                            worksheet_conciliados.write(fila_excel_sum, 4, total_credito_bs, formato_total_conc_num_bs)
-                            worksheet_conciliados.write(fila_excel_sum, 5, total_debito_usd, formato_total_conc_num_usd)
-                            worksheet_conciliados.write(fila_excel_sum, 6, total_credito_usd, formato_total_conc_num_usd)
+                            # --- 1. DEFINICIÓN DE FORMATOS ---
+                            formato_encabezado_empresa = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_size': 14})
+                            formato_encabezado_sub = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_size': 11})
+                            formato_header_tabla = workbook.add_format({'bold': True, 'text_wrap': True, 'valign': 'top', 'fg_color': '#D9EAD3', 'border': 1, 'align': 'center'})
+                            formato_bs = workbook.add_format({'num_format': '#,##0.00'})
+                            formato_usd = workbook.add_format({'num_format': '$#,##0.00'})
+                            formato_tasa = workbook.add_format({'num_format': '#,##0.0000'})
+                            formato_total_pend_text = workbook.add_format({'bold': True, 'bg_color': '#D9EAD3', 'border': 1})
+                            formato_total_pend_bs = workbook.add_format({'bold': True, 'bg_color': '#D9EAD3', 'border': 1, 'num_format': '#,##0.00'})
+                            formato_total_pend_usd = workbook.add_format({'bold': True, 'bg_color': '#D9EAD3', 'border': 1, 'num_format': '$#,##0.00'})
+                            formato_total_conc_text = workbook.add_format({'bold': True, 'bg_color': '#F4CCCC', 'border': 1})
+                            formato_total_conc_num_bs = workbook.add_format({'bold': True, 'bg_color': '#F4CCCC', 'border': 1, 'num_format': '#,##0.00'})
+                            formato_total_conc_num_usd = workbook.add_format({'bold': True, 'bg_color': '#F4CCCC', 'border': 1, 'num_format': '$#,##0.00'})
+                            formato_diferencia_text = workbook.add_format({'bold': True, 'border': 1})
+                            formato_diferencia_num_bs = workbook.add_format({'bold': True, 'border': 1, 'num_format': '#,##0.00'})
+                            formato_diferencia_num_usd = workbook.add_format({'bold': True, 'border': 1, 'num_format': '$#,##0.00'})
+                            # (Añade aquí el resto de tus formatos para la hoja de conciliación)
                             
-                            fila_excel_dif = fila_excel_sum + 1
-                            worksheet_conciliados.write(fila_excel_dif, 0, 'DIFERENCIA', formato_diferencia_text)
-                            worksheet_conciliados.write(fila_excel_dif, 1, 'SALDO NETO (DEBITO - CREDITO)', formato_diferencia_text)
-                            worksheet_conciliados.write(fila_excel_dif, 3, diferencia_bs, formato_diferencia_num_bs)
-                            worksheet_conciliados.write(fila_excel_dif, 5, diferencia_usd, formato_diferencia_num_usd)
-                            pass
+                            # --- HOJA 1: PENDIENTES ---
+                            df_reporte_pendientes_prep = df_saldos_abiertos.copy()
+                            df_reporte_pendientes_prep['Monto Dólar'] = df_reporte_pendientes_prep['Monto_USD']
+                            df_reporte_pendientes_prep['Bs.'] = df_reporte_pendientes_prep['Monto_BS']
+                            monto_dolar_abs = np.abs(df_reporte_pendientes_prep['Monto Dólar'])
+                            monto_bolivar_abs = np.abs(df_reporte_pendientes_prep['Bs.'])
+                            df_reporte_pendientes_prep['Tasa'] = np.where(monto_dolar_abs != 0, monto_bolivar_abs / monto_dolar_abs, np.nan)
+                            columnas_reporte_pendientes = ['Asiento', 'Referencia', 'Fecha', 'Monto Dólar', 'Tasa', 'Bs.']
+                            df_reporte_pendientes_final = df_reporte_pendientes_prep[columnas_reporte_pendientes].sort_values(by='Fecha')
                         
-                        output_excel.seek(0)
+                            if 'Fecha' in df_reporte_pendientes_final.columns:
+                                df_reporte_pendientes_final['Fecha'] = pd.to_datetime(df_reporte_pendientes_final['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y').fillna('')
+                            
+                            nombre_hoja_pendientes = estrategia_actual.get("nombre_hoja_excel", "Pendientes")
+                            # Escribimos los datos en la hoja
+                            df_reporte_pendientes_final.to_excel(writer, sheet_name=nombre_hoja_pendientes, index=False, header=False, startrow=5)
+                            worksheet_pendientes = writer.sheets[nombre_hoja_pendientes]
+                            
+                            # --- 3. ESCRITURA DEL ENCABEZADO Y FORMATO DE LA HOJA 1 ---
+                            num_cols = len(df_reporte_pendientes_final.columns)
+                            if num_cols > 0:
+                                worksheet_pendientes.merge_range(0, 0, 0, num_cols - 1, casa_seleccionada, formato_encabezado_empresa)
+                                worksheet_pendientes.merge_range(1, 0, 1, num_cols - 1, f"ESPECIFICACION DE LA CUENTA {cuenta_seleccionada.split(' - ')[0]}", formato_encabezado_sub)
+                                worksheet_pendientes.merge_range(2, 0, 2, num_cols - 1, texto_fecha_encabezado, formato_encabezado_sub)
+    
+                            for col_num, value in enumerate(df_reporte_pendientes_final.columns.values):
+                                worksheet_pendientes.write(4, col_num, value, formato_header_tabla)
+
+                            worksheet_pendientes.hide_gridlines(2)
+                            worksheet_pendientes.set_column('A:A', 15); worksheet_pendientes.set_column('B:B', 60); worksheet_pendientes.set_column('C:C', 12)
+                            worksheet_pendientes.set_column('D:D', 18, formato_usd); worksheet_pendientes.set_column('E:E', 12, formato_tasa); worksheet_pendientes.set_column('F:F', 18, formato_bs)
+    
+                            total_dolar_pend = df_reporte_pendientes_final['Monto Dólar'].sum()
+                            total_bs_pend = df_reporte_pendientes_final['Bs.'].sum()
+
+                            if not df_reporte_pendientes_final.empty:
+                                fila_excel_sum = len(df_reporte_pendientes_final) + 5
+                                worksheet_pendientes.write(fila_excel_sum, 0, 'SUMA', formato_total_pend_text)
+                                worksheet_pendientes.write(fila_excel_sum, 1, 'TOTAL SALDOS ABIERTOS', formato_total_pend_text)
+                                worksheet_pendientes.write(fila_excel_sum, 3, total_dolar_pend, formato_total_pend_usd)
+                                worksheet_pendientes.write(fila_excel_sum, 5, total_bs_pend, formato_total_pend_bs)
+                       
+                            # --- HOJA 2: CONCILIACIÓN ---
+                            df_reporte_conciliados_prep = df_conciliados.copy()
+                            df_reporte_conciliados_prep.rename(columns={'Grupo_Conciliado': 'Conciliación'}, inplace=True)
+                            columnas_reporte_conciliados = ['Asiento', 'Referencia', 'Fecha', 'Débito Bolivar', 'Crédito Bolivar', 'Débito Dolar', 'Crédito Dolar', 'Conciliación']
+                            df_reporte_conciliados_final = df_reporte_conciliados_prep[columnas_reporte_conciliados].sort_values(by='Fecha')
+                            if 'Fecha' in df_reporte_conciliados_final.columns:
+                                df_reporte_conciliados_final['Fecha'] = pd.to_datetime(df_reporte_conciliados_final['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y').fillna('')
+                            
+                            df_reporte_conciliados_final.to_excel(writer, sheet_name='Conciliación', index=False)
+                            worksheet_conciliados = writer.sheets['Conciliación']
+                            worksheet_conciliados.hide_gridlines(2)
+                            worksheet_conciliados.set_column('A:A', 15); worksheet_conciliados.set_column('B:B', 60); worksheet_conciliados.set_column('C:C', 12)
+                            worksheet_conciliados.set_column('D:E', 15, formato_bs); worksheet_conciliados.set_column('F:G', 15, formato_usd)
+                            worksheet_conciliados.set_column('H:H', 35)
+
+                            total_debito_bs = df_reporte_conciliados_final['Débito Bolivar'].sum()
+                            total_credito_bs = df_reporte_conciliados_final['Crédito Bolivar'].sum()
+                            total_debito_usd = df_reporte_conciliados_final['Débito Dolar'].sum()
+                            total_credito_usd = df_reporte_conciliados_final['Crédito Dolar'].sum()
+                            diferencia_bs = total_debito_bs - total_credito_bs
+                            diferencia_usd = total_debito_usd - total_credito_usd
+                            if not df_reporte_conciliados_final.empty:
+                                fila_excel_sum = len(df_reporte_conciliados_final) + 1
+                                worksheet_conciliados.write(fila_excel_sum, 0, 'SUMA', formato_total_conc_text)
+                                worksheet_conciliados.write(fila_excel_sum, 1, 'TOTAL CRUZADOS', formato_total_conc_text)
+                                worksheet_conciliados.write(fila_excel_sum, 3, total_debito_bs, formato_total_conc_num_bs)
+                                worksheet_conciliados.write(fila_excel_sum, 4, total_credito_bs, formato_total_conc_num_bs)
+                                worksheet_conciliados.write(fila_excel_sum, 5, total_debito_usd, formato_total_conc_num_usd)
+                                worksheet_conciliados.write(fila_excel_sum, 6, total_credito_usd, formato_total_conc_num_usd)
+                                
+                                fila_excel_dif = fila_excel_sum + 1
+                                worksheet_conciliados.write(fila_excel_dif, 0, 'DIFERENCIA', formato_diferencia_text)
+                                worksheet_conciliados.write(fila_excel_dif, 1, 'SALDO NETO (DEBITO - CREDITO)', formato_diferencia_text)
+                                worksheet_conciliados.write(fila_excel_dif, 3, diferencia_bs, formato_diferencia_num_bs)
+                                worksheet_conciliados.write(fila_excel_dif, 5, diferencia_usd, formato_diferencia_num_usd)
+                                
+                            df_reporte_conciliados_prep.to_excel(writer, sheet_name='Conciliación', index=False)
+                            
+                            output_excel.seek(0)
                     
-                        # --- GUARDADO EN SESSION_STATE ---
-                        st.session_state.log_messages = log_messages
-                        st.session_state.processing_complete = True
-                        st.session_state.csv_output = csv_output
-                        st.session_state.excel_output = output_excel
-                        st.session_state.df_saldos_abiertos = df_saldos_abiertos
-                        st.session_state.df_conciliados = df_conciliados
+                            # --- GUARDADO EN SESSION_STATE ---
+                            st.session_state.log_messages = log_messages
+                            st.session_state.processing_complete = True
+                            st.session_state.csv_output = csv_output
+                            st.session_state.excel_output = output_excel
+                            st.session_state.df_saldos_abiertos = df_saldos_abiertos
+                            st.session_state.df_conciliados = df_conciliados
                     else:
                         st.session_state.processing_complete = False
                         

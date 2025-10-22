@@ -477,26 +477,26 @@ if check_password():
     """)
     
     # Interfaz de Carga de Archivos
-col1, col2 = st.columns(2)
-with col1:
-    uploaded_actual = st.file_uploader("1. Cargar archivo del mes actual (.csv)", type="csv")
-with col2:
-    uploaded_anterior = st.file_uploader("2. Cargar archivo de saldos anteriores (.csv)", type="csv")
+    col1, col2 = st.columns(2)
+    with col1:
+        uploaded_actual = st.file_uploader("1. Cargar archivo del mes actual (.csv)", type="csv")
+    with col2:
+        uploaded_anterior = st.file_uploader("2. Cargar archivo de saldos anteriores (.csv)", type="csv")
 
     # Lógica del Botón y Procesamiento
-if uploaded_actual and uploaded_anterior:
+    if uploaded_actual and uploaded_anterior:
     
-    if st.button("▶️ Iniciar Conciliación", type="primary", use_container_width=True):
-        with st.spinner('Procesando... por favor espere.'):
-            pass 
-            log_messages = []
+        if st.button("▶️ Iniciar Conciliación", type="primary", use_container_width=True):
+            with st.spinner('Procesando... por favor espere.'):
+                pass 
+                log_messages = []
             try:
                 # 1. Cargar y Limpiar Datos
-                df_full = cargar_y_limpiar_datos(uploaded_actual, uploaded_anterior, log_messages)
+                    df_full = cargar_y_limpiar_datos(uploaded_actual, uploaded_anterior, log_messages)
                 
-                if df_full is not None:
+                    if df_full is not None:
                     # 2. Ejecutar toda la Lógica de Conciliación
-                    df_full = run_conciliation_process(df_full, log_messages)
+                        df_full = run_conciliation_process(df_full, log_messages)
                     
                     # 3. Preparar DataFrames para la salida
                     df_saldos_abiertos = df_full[~df_full['Conciliado']].copy()
@@ -632,3 +632,4 @@ if st.session_state.processing_complete:
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(st.session_state.df_conciliados)
+

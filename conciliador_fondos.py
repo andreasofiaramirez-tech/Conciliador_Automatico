@@ -6,20 +6,26 @@ import xlsxwriter
 from itertools import combinations
 from io import BytesIO  # Necesario para manejar archivos en memoria
 
-# --- Configuración de la página de Streamlit ---
-st.set_page_config(
-    page_title="Conciliador Automático",
-    page_icon="🤖",
-    layout="wide"
-)
+# --- 1. CONFIGURACIÓN E INICIALIZACIÓN DE ESTADO ---
+st.set_page_config(page_title="Conciliador Automático", page_icon="🤖", layout="wide")
 
-# --- BLOQUE DE FUNCIONES DE LÓGICA DE DATOS ---
-# --- 1. Definición de Constantes y Lógica del Script Original ---
+# Inicialización del estado de la sesión (MEMORIA POR DEFECTO)
+if 'password_correct' not in st.session_state:
+    st.session_state.password_correct = False
+if 'processing_complete' not in st.session_state:
+    st.session_state.processing_complete = False
+    st.session_state.log_messages = []
+    st.session_state.csv_output = None
+    st.session_state.excel_output = None
+    st.session_state.df_saldos_abiertos = pd.DataFrame()
+    st.session_state.df_conciliados = pd.DataFrame()
+
+# --- 2. BLOQUE DE FUNCIONES DE LÓGICA ---
+
+# --- 2.1. Definición de Constantes y Lógica ---
 TOLERANCIAS_MAX_BS = 2.00 
 
-# --- 2. Bloque de Funciones del Script Original ---
-# 'log_messages' para registrar sus acciones y mostrarlas en la web.
-
+# --- 2.2. Bloque de Funciones ---
 def mapear_columnas(df, log_messages):
     DEBITO_SYNONYMS = ['debito', 'debitos', 'débito', 'débitos']
     CREDITO_SYNONYMS = ['credito', 'creditos', 'crédito', 'créditos']
@@ -385,8 +391,7 @@ def conciliar_gran_total_final(df, log_messages):
         log_messages.append(f"ℹ️ Fase Final: No se concilió. Suma de remanentes es {suma_gran_total_bs:.2f} Bs.")
         return 0
 
-# --- 3. Función que Ejecuta Toda la Lógica de Conciliación ---
-# Esta función replica el orden exacto de llamadas de tu 'main()' original.
+# --- 2.3. Función que Ejecuta Toda la Lógica de Conciliación ---
 
 def run_conciliation_process(df, log_messages):
     df = normalizar_referencia(df)
@@ -437,51 +442,39 @@ def run_conciliation_process(df, log_messages):
     return df
 
 
-# --- FUNCIÓN DE SEGURIDAD (EL "GUARDIA") ---
-
+# --- 3. FUNCIÓN DE SEGURIDAD ---
 def check_password():
     """Returns `True` if the user had the correct password."""
     def password_entered():
-        if st.session_state["password"] == st.secrets["password"]:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
+        if st.session_state.get("password") == st.secrets.get("password"):
+            st.session_state.password_correct = True
+            if "password" in st.session_state:
+                del st.session_state["password"]
         else:
-            st.session_state["password_correct"] = False
+            st.session_state.password_correct = False
 
-    if "password_correct" not in st.session_state:
+    if not st.session_state.password_correct:
         st.text_input("Contraseña", type="password", on_change=password_entered, key="password")
-        st.markdown("---")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Contraseña", type="password", on_change=password_entered, key="password")
-        st.error("😕 Contraseña incorrecta.")
+        if "password" in st.session_state and not st.session_state.password_correct:
+             st.error("😕 Contraseña incorrecta.")
         st.markdown("---")
         return False
     else:
         return True
 
     
-# --- FLUJO PRINCIPAL DE LA APLICACIÓN ---
-
+# --- 4. FLUJO PRINCIPAL DE LA APLICACIÓN --
 st.title('🤖 Herramienta de Conciliación Automática')
 
-# 1. PRIMERO, VERIFICAMOS LA CONTRASEÑA
+# Primero, llamamos a la función de seguridad.
 if check_password():
     
-    # 2. SOLO SI LA CONTRASEÑA ES CORRECTA, CONSTRUIMOS EL RESTO DE LA APP
+    # --- INICIO DEL ÁREA PROTEGIDA ---
+    # Si la contraseña es correcta, mostramos el resto de la aplicación.
     
     st.markdown("""
     Esta aplicación automatiza el proceso de conciliación de la cuenta 'Fondos en Tránsito'.
     """)
-
-    # Inicialización del Estado
-    if 'processing_complete' not in st.session_state:
-        st.session_state.processing_complete = False
-        st.session_state.log_messages = []
-        st.session_state.csv_output = None
-        st.session_state.excel_output = None
-        st.session_state.df_saldos_abiertos = pd.DataFrame()
-        st.session_state.df_conciliados = pd.DataFrame()
     
     # Interfaz de Carga de Archivos
 col1, col2 = st.columns(2)
@@ -639,4 +632,3 @@ if st.session_state.processing_complete:
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(st.session_state.df_conciliados)
-

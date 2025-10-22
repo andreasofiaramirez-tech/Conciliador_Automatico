@@ -478,9 +478,9 @@ if check_password():
     
     CASA_OPTIONS = ["FEBECA, C.A", "MAYOR BEVAL, C.A", "PRISMA, C.A", "FEBECA, C.A (QUINCALLA)"]
     CUENTA_OPTIONS = [
-                    "111.04.1001 - Fondos en Tránsito", 
-                    "212.07.6009 - Devoluciones a Proveed.en el País en ME"
-                    ]
+        "111.04.1001 - Fondos en Tránsito", 
+        "212.07.6009 - Devoluciones a Proveed.en el País en ME"
+        ]
 
     casa_seleccionada = st.selectbox("**1. Seleccione la Empresa (Casa):**", CASA_OPTIONS)
     cuenta_seleccionada = st.selectbox("**2. Seleccione la Cuenta Contable:**", CUENTA_OPTIONS)
@@ -541,7 +541,7 @@ if check_password():
                         # --- DEFINICIÓN DE FORMATOS ---
                         formato_encabezado_empresa = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_size': 14})
                         formato_encabezado_sub = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_size': 11})
-                        formato_header_tabla = workbook.add_format({'bold': True, 'text_wrap': True, 'valign': 'top', 'fg_color': '#D9EAD3', 'border': 1})
+                        formato_header_tabla = workbook.add_format({'bold': True, 'text_wrap': True, 'valign': 'top', 'fg_color': '#D9EAD3', 'border': 1, 'align': 'center'})
                         formato_bs = workbook.add_format({'num_format': '#,##0.00'})
                         formato_usd = workbook.add_format({'num_format': '$#,##0.00'})
                         formato_tasa = workbook.add_format({'num_format': '#,##0.0000'})
@@ -564,15 +564,18 @@ if check_password():
                         df_reporte_pendientes_prep['Tasa'] = np.where(monto_dolar_abs != 0, monto_bolivar_abs / monto_dolar_abs, np.nan)
                         columnas_reporte_pendientes = ['Asiento', 'Referencia', 'Fecha', 'Monto Dólar', 'Tasa', 'Bs.']
                         df_reporte_pendientes_final = df_reporte_pendientes_prep[columnas_reporte_pendientes].sort_values(by='Fecha')
+    
                         if 'Fecha' in df_reporte_pendientes_final.columns:
                             df_reporte_pendientes_final['Fecha'] = pd.to_datetime(df_reporte_pendientes_final['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y').fillna('')
-                        
-                        # Escribimos los datos SIN encabezado, empezando en la fila 5 (índice 4)
-                        df_reporte_pendientes_final.to_excel(writer, sheet_name='111.04.1001', index=False, header=False, startrow=4)
-                        worksheet_pendientes = writer.sheets['111.04.1001']
+        
+                        worksheet_pendientes = writer.sheets.get('111.04.1001')
+                        if worksheet_pendientes is None:
+                            worksheet_pendientes = workbook.add_worksheet('111.04.1001')
+        
+                        # Escribimos los datos SIN encabezado, empezando en la fila 6 (índice 5)
+                        df_reporte_pendientes_final.to_excel(writer, sheet_name='111.04.1001', index=False, header=False, startrow=5)
                         
                         # --- ESCRITURA DEL NUEVO ENCABEZADO ---
-                        
                         num_cols = len(df_reporte_pendientes_final.columns)
                         
                         # Línea 1: Nombre de la Empresa
@@ -593,12 +596,16 @@ if check_password():
                         worksheet_pendientes.set_column('A:A', 15); worksheet_pendientes.set_column('B:B', 60); worksheet_pendientes.set_column('C:C', 12)
                         worksheet_pendientes.set_column('D:D', 18, formato_usd); worksheet_pendientes.set_column('E:E', 12, formato_tasa); worksheet_pendientes.set_column('F:F', 18, formato_bs)
                         
+                        # --- LÓGICA DE TOTALES ---
                         total_dolar_pend = df_reporte_pendientes_final['Monto Dólar'].sum()
                         total_bs_pend = df_reporte_pendientes_final['Bs.'].sum()
+    
                         if not df_reporte_pendientes_final.empty:
-                            fila_excel_sum = len(df_reporte_pendientes_final) + 1
+                            # Calculamos la fila para la sumatoria DESPUÉS de escribir los datos
+                            fila_excel_sum = len(df_reporte_pendientes_final) + 5
                             worksheet_pendientes.write(fila_excel_sum, 0, 'SUMA', formato_total_pend_text)
                             worksheet_pendientes.write(fila_excel_sum, 1, 'TOTAL SALDOS ABIERTOS', formato_total_pend_text)
+                            # Escribimos en las columnas correctas (D para Dólar, F para Bs.)
                             worksheet_pendientes.write(fila_excel_sum, 3, total_dolar_pend, formato_total_pend_usd)
                             worksheet_pendientes.write(fila_excel_sum, 5, total_bs_pend, formato_total_pend_bs)
 

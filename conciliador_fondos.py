@@ -679,7 +679,6 @@ if check_password():
                                 worksheet_conciliados.write(fila_excel_dif, 3, diferencia_bs, formato_diferencia_num_bs)
                                 worksheet_conciliados.write(fila_excel_dif, 5, diferencia_usd, formato_diferencia_num_usd)
                                 
-                            df_reporte_conciliados_prep.to_excel(writer, sheet_name='Conciliación', index=False)
                             
                             output_excel.seek(0)
                     
@@ -721,3 +720,4 @@ if st.session_state.processing_complete:
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(st.session_state.df_conciliados)
+

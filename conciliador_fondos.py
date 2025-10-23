@@ -628,7 +628,7 @@ if check_password():
                             
                             # Definimos exactamente qué columnas queremos y en qué orden
                             columnas_reporte_conciliados = ['Asiento', 'Referencia', 'Fecha', 'Débito Bolivar', 'Crédito Bolivar', 'Débito Dolar', 'Crédito Dolar', 'Conciliación']
-                            df_reporte_conciliados_final = df_reporte_conciliados_prep.reindex(columns=columnas_reporte_conciliados).sort_values(by='Fecha')
+                            df_reporte_conciliados_final = df_reporte_conciliados_prep[columnas_reporte_conciliados].sort_values(by='Fecha')
                             
                             # FIX DE FORMATO DE FECHA PARA EXCEL
                             if 'Fecha' in df_reporte_conciliados_final.columns:
@@ -642,19 +642,14 @@ if check_password():
                             # --- ESCRITURA DEL NUEVO ENCABEZADO PARA LA HOJA DE CONCILIACIÓN ---
                             num_cols_conc = len(df_reporte_conciliados_final.columns)
                             if num_cols_conc > 0:
-                                num_cols_conc = len(df_reporte_conciliados_final.columns)
-                            if num_cols_conc > 0:
-                                # Línea 1: Nombre de la Empresa
                                 worksheet_conciliados.merge_range(0, 0, 0, num_cols_conc - 1, casa_seleccionada, formato_encabezado_empresa)
-                                # Línea 2: Título de la hoja
                                 worksheet_conciliados.merge_range(1, 0, 1, num_cols_conc - 1, f"MOVIMIENTOS CONCILIADOS DE LA CUENTA {cuenta_seleccionada.split(' - ')[0]}", formato_encabezado_sub)
-                                # Línea 3: Período
                                 worksheet_conciliados.merge_range(2, 0, 2, num_cols_conc - 1, texto_fecha_encabezado, formato_encabezado_sub)
 
-                            # Escribimos manualmente los encabezados de la tabla en la fila 5 (índice 4)
-                            for col_num, value in enumerate(df_reporte_conciliados_final.columns.values): 
+                            for col_num, value in enumerate(df_reporte_conciliados_final.columns.values):
                                 worksheet_conciliados.write(4, col_num, value, formato_header_tabla)
-                            
+                                
+                            # --- APLICACIÓN DE FORMATOS DE COLUMNAS ---                        
                             worksheet_conciliados.hide_gridlines(2)
                             worksheet_conciliados.set_column('A:A', 15); worksheet_conciliados.set_column('B:B', 60); worksheet_conciliados.set_column('C:C', 12)
                             worksheet_conciliados.set_column('D:E', 15, formato_bs); worksheet_conciliados.set_column('F:G', 15, formato_usd)
@@ -669,8 +664,7 @@ if check_password():
                             diferencia_usd = total_debito_usd - total_credito_usd
                             
                             if not df_reporte_conciliados_final.empty:
-                                # Calculamos la fila para la sumatoria DESPUÉS de escribir los datos
-                                fila_excel_sum = len(df_reporte_conciliados_final) + 5 # 5 filas de encabezado
+                                fila_excel_sum = len(df_reporte_conciliados_final) + 5
                                 worksheet_conciliados.write(fila_excel_sum, 0, 'SUMA', formato_total_conc_text)
                                 worksheet_conciliados.write(fila_excel_sum, 1, 'TOTAL CRUZADOS', formato_total_conc_text)
                                 worksheet_conciliados.write(fila_excel_sum, 3, total_debito_bs, formato_total_conc_num_bs)

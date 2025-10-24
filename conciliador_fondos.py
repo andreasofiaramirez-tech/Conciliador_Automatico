@@ -759,17 +759,18 @@ if check_password():
     # Esta sección solo se muestra si la "bandera" processing_complete es True.
 if st.session_state.processing_complete:
     st.success("✅ ¡Conciliación completada con éxito!")
+    res_col1, res_col2 = st.columns(2, gap="small")
     
-    pass 
-    res_col1, res_col2 = st.columns(2)
 with res_col1:
     st.metric("Movimientos Conciliados", len(st.session_state.df_conciliados))
     st.download_button("⬇️ Descargar Reporte Completo (Excel)", st.session_state.excel_output, "reporte_conciliacion.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="download_excel")
+
 with res_col2:
     st.metric("Saldos Abiertos (Pendientes)", len(st.session_state.df_saldos_abiertos))
     st.download_button("⬇️ Descargar Saldos para Próximo Mes (CSV)", st.session_state.csv_output, "saldos_para_proximo_mes.csv", "text/csv", use_container_width=True, key="download_csv")
-
+    # MEJORA: La caja de instrucciones se coloca aquí para que se alinee con la columna derecha.
     st.info("**Instrucción de Ciclo Mensual:** Para el próximo mes, debe usar el archivo `saldos_para_proximo_mes.csv` como el archivo de 'saldos anteriores'.")
+
 
     with st.expander("Ver registro detallado del proceso"):
         st.text_area("Log", '\n'.join(st.session_state.log_messages), height=300, key="log_area")
@@ -844,4 +845,5 @@ with res_col2:
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(st.session_state.df_conciliados)
+
 

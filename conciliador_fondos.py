@@ -770,23 +770,26 @@ if st.session_state.processing_complete:
     with res_col2:
         st.metric("Saldos Abiertos (Pendientes)", len(st.session_state.df_saldos_abiertos))
         st.download_button("⬇️ Descargar Saldos para Próximo Mes (CSV)", st.session_state.csv_output, "saldos_para_proximo_mes.csv", "text/csv", use_container_width=True, key="download_csv")
-        
+
+    # Instrucción de ciclo mensual, ahora debajo de las columnas
     st.info("**Instrucción de Ciclo Mensual:** Para el próximo mes, debe usar el archivo `saldos_para_proximo_mes.csv` como el archivo de 'saldos anteriores'.")
 
     # Expander para el log detallado
     with st.expander("Ver registro detallado del proceso"):
         st.text_area("Log", '\n'.join(st.session_state.log_messages), height=300, key="log_area")
 
-    # Previsualización de Saldos Pendientes (SOLO UNA VEZ)
+    # Previsualización de Saldos Pendientes con formato numérico
     st.subheader("Previsualización de Saldos Pendientes")
     st.dataframe(
         st.session_state.df_saldos_abiertos,
         column_config={
             "Fecha": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
-            "Débito Bolivar": st.column_config.NumberColumn(format="%.2f"),
-            "Crédito Bolivar": st.column_config.NumberColumn(format="%.2f"),
-            "Débito Dolar": st.column_config.NumberColumn(format="%.2f"),
-            "Crédito Dolar": st.column_config.NumberColumn(format="%.2f"),
+            # --- INICIO DE LA CORRECCIÓN DE FORMATO NUMÉRICO ---
+            "Débito Bolivar": st.column_config.NumberColumn("Débito Bolivar", format="%.2f"),
+            "Crédito Bolivar": st.column_config.NumberColumn("Crédito Bolivar", format="%.2f"),
+            "Débito Dolar": st.column_config.NumberColumn("Débito Dolar", format="%.2f"),
+            "Crédito Dolar": st.column_config.NumberColumn("Crédito Dolar", format="%.2f"),
+            # --- FIN DE LA CORRECCIÓN ---
             "Monto_BS": None, "Monto_USD": None, "Grupo_Conciliado": None,
             "Referencia_Normalizada_Literal": None, "Clave_Normalizada": None, "Clave_Grupo": None,
         },
@@ -794,16 +797,18 @@ if st.session_state.processing_complete:
         use_container_width=True
     )
 
-    # Previsualización de Movimientos Conciliados (SOLO UNA VEZ)
+    # Previsualización de Movimientos Conciliados con formato numérico
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(
         st.session_state.df_conciliados,
         column_config={
             "Fecha": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
-            "Débito Bolivar": st.column_config.NumberColumn(format="%.2f"),
-            "Crédito Bolivar": st.column_config.NumberColumn(format="%.2f"),
-            "Débito Dolar": st.column_config.NumberColumn(format="%.2f"),
-            "Crédito Dolar": st.column_config.NumberColumn(format="%.2f"),
+            # --- INICIO DE LA CORRECCIÓN DE FORMATO NUMÉRICO ---
+            "Débito Bolivar": st.column_config.NumberColumn("Débito Bolivar", format="%.2f"),
+            "Crédito Bolivar": st.column_config.NumberColumn("Crédito Bolivar", format="%.2f"),
+            "Débito Dolar": st.column_config.NumberColumn("Débito Dolar", format="%.2f"),
+            "Crédito Dolar": st.column_config.NumberColumn("Crédito Dolar", format="%.2f"),
+            # --- FIN DE LA CORRECCIÓN ---
             "Grupo_Conciliado": st.column_config.Column("Grupo de Conciliación"),
             "Monto_BS": None, "Monto_USD": None,
             "Referencia_Normalizada_Literal": None, "Clave_Normalizada": None, "Clave_Grupo": None,

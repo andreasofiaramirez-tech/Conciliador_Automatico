@@ -104,14 +104,20 @@ def cargar_y_limpiar_datos(uploaded_actual, uploaded_anterior, log_messages):
 
         for col in columnas_montos:
             if col in df.columns:
-                # La limpieza de montos se vuelve más simple, pero la mantenemos por robustez
-                # por si algún monto viene como texto en el Excel.
+                # Si la columna ya es numérica (leída correctamente por Excel), solo la redondeamos y continuamos.
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    df[col] = df[col].round(2)
+                    continue
+                
+                # Si la columna es texto, aplicamos la lógica de limpieza segura.
+                # Convertimos todo a string para un tratamiento uniforme.
                 temp_serie = df[col].astype(str).str.strip()
-                temp_serie = temp_serie.str.replace('-', '0', regex=False).str.replace(' ', '', regex=False)
-                # La lógica de comas y puntos se mantiene por si el formato regional del Excel es texto.
+                
+                # Lógica segura: primero quitar separadores de miles (.), luego cambiar coma decimal (,) por punto.
                 temp_serie = temp_serie.str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
-                df[col] = pd.to_numeric(temp_serie, errors='coerce').fillna(0.0)
-                df[col] = df[col].round(2)
+                
+                # Convertimos a numérico. El 'errors='coerce'' maneja cualquier valor que no se pueda convertir.
+                df[col] = pd.to_numeric(temp_serie, errors='coerce').fillna(0.0).round(2)
         
         return df
 

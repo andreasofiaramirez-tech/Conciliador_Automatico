@@ -453,21 +453,24 @@ def normalizar_referencia_fondos_usd(df):
         if pd.isna(ref_str): return 'OTRO', 'OTRO', ''
         ref, ref_lit_norm = str(ref_str).upper().strip(), re.sub(r'[^A-Z0-9]', '', str(ref_str).upper())
 
-        # --- INICIO DE LA CORRECCIÓN ---
-        # Regla #1 (NUEVA Y PRIORITARIA): Buscar Diferencial Cambiario
         if 'DIFERENCIA' in ref and 'CAMBIO' in ref:
             return 'DIF_CAMBIO', 'GRUPO_DIF_CAMBIO', ref_lit_norm
-        # --- FIN DE LA CORRECCIÓN ---
-
-        # Regla #2: Buscar Gastos por Tarjeta
+        if 'BANCO A BANCO' in ref:
+            return 'BANCO_A_BANCO', 'GRUPO_BANCO', ref_lit_norm
+        if 'TRASPASO' in ref:
+            return 'TRASPASO', 'GRUPO_TRASPASO', ref_lit_norm
+        if 'BANCARIZACION' in ref:
+            return 'BANCARIZACION', 'GRUPO_BANCARIZACION', ref_lit_norm
+        if 'REINTEGRO' in ref:
+            return 'REINTEGRO', 'GRUPO_REINTEGRO', ref_lit_norm
+        if 'REMESA' in ref:
+            return 'REMESA', 'GRUPO_REMESA', ref_lit_norm
         if 'GASTOS POR TARJETA' in ref:
             return 'TARJETA_GASTOS', 'GRUPO_TARJETA', ref_lit_norm
-            
-        # Regla #3: Buscar Notas
         if 'NOTA DE DEBITO' in ref or 'NOTA DE CREDITO' in ref:
             return 'NOTA_GENERAL', 'GRUPO_NOTA', ref_lit_norm
         
-        # Regla #4: Si no es ninguna de las anteriores
+        # Si no es ninguna de las anteriores
         return 'OTRO', 'OTRO', ref_lit_norm
 
     df_copy[['Clave_Normalizada', 'Clave_Grupo', 'Referencia_Normalizada_Literal']] = df_copy['Referencia'].apply(clasificar_usd).apply(pd.Series)
@@ -609,16 +612,27 @@ def run_conciliation_fondos_por_depositar(df, log_messages):
     log_messages.append("\n--- INICIANDO LÓGICA DE FONDOS POR DEPOSITAR (USD) ---")
     df = normalizar_referencia_fondos_usd(df)
     
-    # Fases automáticas: esta función maneja tanto el diferencial como los ajustes.
+    # Fases automáticas: esta función maneja el diferencial.
     conciliar_automaticos_usd(df, log_messages) 
     
     # Fases por grupo (USD)
-    conciliar_pares_por_referencia_usd(df, 'GRUPO_NOTA', 'FASE NOTAS (Pares por Ref.)', log_messages)
-    conciliar_lote_por_grupo_usd(df, 'GRUPO_NOTA', 'FASE NOTAS (Lote de Grupo)', log_messages)
-    conciliar_pares_por_referencia_usd(df, 'GRUPO_TARJETA', 'FASE TARJETAS (Pares por Ref.)', log_messages)
-    conciliar_lote_por_grupo_usd(df, 'GRUPO_TARJETA', 'FASE TARJETAS (Lote de Grupo)', log_messages)
+    # Creamos una lista de los grupos a procesar para que el código sea más limpio.
+    grupos_a_procesar = [
+        ('GRUPO_NOTA', 'NOTAS'),
+        ('GRUPO_TARJETA', 'TARJETAS'),
+        ('GRUPO_BANCO', 'BANCO A BANCO'),
+        ('GRUPO_TRASPASO', 'TRASPASOS'),
+        ('GRUPO_BANCARIZACION', 'BANCARIZACION'),
+        ('GRUPO_REINTEGRO', 'REINTEGROS'),
+        ('GRUPO_REMESA', 'REMESAS')
+    ]
+
+    # Procesamos cada grupo con las mismas dos lógicas de conciliación.
+    for clave_grupo, nombre_fase in grupos_a_procesar:
+        conciliar_pares_por_referencia_usd(df, clave_grupo, f'FASE {nombre_fase} (Pares por Ref.)', log_messages)
+        conciliar_lote_por_grupo_usd(df, clave_grupo, f'FASE {nombre_fase} (Lote de Grupo)', log_messages)
     
-    # Fases Globales (USD)
+    # Fases Globales (USD) - Se ejecutan al final sobre todo lo que quede pendiente
     conciliar_pares_globales_remanentes_usd(df, log_messages)
     conciliar_gran_total_final_usd(df, log_messages)
     
@@ -972,6 +986,7 @@ if st.session_state.processing_complete:
         column_order=("Asiento", "Referencia", "Fecha", "Débito Bolivar", "Crédito Bolivar", "Débito Dolar", "Crédito Dolar", "Grupo_Conciliado"),
         use_container_width=True
     )
+
 
 
 

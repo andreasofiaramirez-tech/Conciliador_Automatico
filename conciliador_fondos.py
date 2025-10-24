@@ -105,19 +105,42 @@ def cargar_y_limpiar_datos(uploaded_actual, uploaded_anterior, log_messages):
 
         for col in columnas_montos:
             if col in df.columns:
+                # Forzamos la conversión a texto para un tratamiento uniforme y seguro.
                 df[col] = df[col].astype(str)
 
-                def limpiar_numero_flexible(texto):
-                    texto_limpio = texto.strip()
+                def limpiar_numero_avanzado(texto):
+                    """
+                    Función robusta que limpia cualquier formato de número.
+                    1. Elimina símbolos de moneda y espacios.
+                    2. Detecta el formato (europeo/americano).
+                    3. Devuelve un string limpio listo para ser convertido a número.
+                    """
+                    if texto is None or texto.strip() == 'nan':
+                        return '0.0'
+                    
+                    # Paso 1: Limpieza agresiva de caracteres no deseados
+                    # Mantenemos solo dígitos, comas, puntos y el signo de resta al inicio.
+                    texto_limpio = re.sub(r'[^\d.,-]', '', texto.strip())
+
+                    # Si después de limpiar no queda nada, es cero.
+                    if not texto_limpio:
+                        return '0.0'
+
+                    # Paso 2: Detección de formato (lógica anterior mejorada)
                     num_puntos = texto_limpio.count('.')
                     num_comas = texto_limpio.count(',')
-                    if num_comas == 1 and num_puntos >= 0:
-                        return texto_limpio.replace('.', '').replace(',', '.')
-                    elif num_puntos == 1 and num_comas >= 1:
-                        return texto_limpio.replace(',', '')
-                    return texto_limpio
 
-                temp_serie = df[col].apply(limpiar_numero_flexible)
+                    if num_comas == 1 and num_puntos > 0: # Formato europeo: 1.234,56
+                        return texto_limpio.replace('.', '').replace(',', '.')
+                    elif num_puntos == 1 and num_comas > 0: # Formato americano: 1,234.56
+                        return texto_limpio.replace(',', '')
+                    else: # Formato simple o ya limpio
+                        return texto_limpio.replace(',', '.') # Asegura que la coma sea punto decimal
+
+                # Aplicamos la nueva función de limpieza avanzada
+                temp_serie = df[col].apply(limpiar_numero_avanzado)
+                
+                # Conversión final a número
                 df[col] = pd.to_numeric(temp_serie, errors='coerce').fillna(0.0).round(2)
         
         return df
@@ -424,18 +447,32 @@ def conciliar_gran_total_final(df, log_messages):
 
 # --- (C) Funciones de Lógica para FONDOS POR DEPOSITAR (USD) ---
 
-# --- (B) NUEVA LÓGICA para FONDOS POR DEPOSITAR (USD) ---
 def normalizar_referencia_fondos_usd(df):
     df_copy = df.copy()
     def clasificar_usd(ref_str):
         if pd.isna(ref_str): return 'OTRO', 'OTRO', ''
         ref, ref_lit_norm = str(ref_str).upper().strip(), re.sub(r'[^A-Z0-9]', '', str(ref_str).upper())
-        if any(kw in ref for kw in ['DIFERENCIA EN CAMBIO', 'DIF. CAMBIO']): return 'DIF_CAMBIO', 'GRUPO_DIF_CAMBIO', ref_lit_norm
-        if 'GASTOS POR TARJETA' in ref: return 'TARJETA_GASTOS', 'GRUPO_TARJETA', ref_lit_norm
-        if 'NOTA DE DEBITO' in ref or 'NOTA DE CREDITO' in ref: return 'NOTA_GENERAL', 'GRUPO_NOTA', ref_lit_norm
+
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Regla #1 (NUEVA Y PRIORITARIA): Buscar Diferencial Cambiario
+        if 'DIFERENCIA' in ref and 'CAMBIO' in ref:
+            return 'DIF_CAMBIO', 'GRUPO_DIF_CAMBIO', ref_lit_norm
+        # --- FIN DE LA CORRECCIÓN ---
+
+        # Regla #2: Buscar Gastos por Tarjeta
+        if 'GASTOS POR TARJETA' in ref:
+            return 'TARJETA_GASTOS', 'GRUPO_TARJETA', ref_lit_norm
+            
+        # Regla #3: Buscar Notas
+        if 'NOTA DE DEBITO' in ref or 'NOTA DE CREDITO' in ref:
+            return 'NOTA_GENERAL', 'GRUPO_NOTA', ref_lit_norm
+        
+        # Regla #4: Si no es ninguna de las anteriores
         return 'OTRO', 'OTRO', ref_lit_norm
+
     df_copy[['Clave_Normalizada', 'Clave_Grupo', 'Referencia_Normalizada_Literal']] = df_copy['Referencia'].apply(clasificar_usd).apply(pd.Series)
     return df_copy
+
 def conciliar_pares_por_referencia_usd(df, clave_grupo, fase_name, log_messages):
     df_pendientes = df[(df['Clave_Grupo'] == clave_grupo) & (~df['Conciliado'])].copy()
     if df_pendientes.empty: return 0
@@ -935,6 +972,7 @@ if st.session_state.processing_complete:
         column_order=("Asiento", "Referencia", "Fecha", "Débito Bolivar", "Crédito Bolivar", "Débito Dolar", "Crédito Dolar", "Grupo_Conciliado"),
         use_container_width=True
     )
+
 
 
 

@@ -756,51 +756,57 @@ if check_password():
                 st.session_state.processing_complete = False
 
 # --- Sección de Resultados ---
-    # Esta sección solo se muestra si la "bandera" processing_complete es True.
+# Esta sección solo se muestra si la "bandera" processing_complete es True.
 if st.session_state.processing_complete:
     st.success("✅ ¡Conciliación completada con éxito!")
-
-    pass
-    res_col1, res_col2 = st.columns(2, gap="small")
     
-with res_col1:
-    st.metric("Movimientos Conciliados", len(st.session_state.df_conciliados))
-    st.download_button("⬇️ Descargar Reporte Completo (Excel)", st.session_state.excel_output, "reporte_conciliacion.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="download_excel")
+    # La línea que define las columnas debe estar aquí
+    res_col1, res_col2 = st.columns(2, gap="small")
 
-with res_col2:
-    st.metric("Saldos Abiertos (Pendientes)", len(st.session_state.df_saldos_abiertos))
-    st.download_button("⬇️ Descargar Saldos para Próximo Mes (CSV)", st.session_state.csv_output, "saldos_para_proximo_mes.csv", "text/csv", use_container_width=True, key="download_csv")
-    # MEJORA: La caja de instrucciones se coloca aquí para que se alinee con la columna derecha.
-    st.info("**Instrucción de Ciclo Mensual:** Para el próximo mes, debe usar el archivo `saldos_para_proximo_mes.csv` como el archivo de 'saldos anteriores'.")
-
+    with res_col1:
+        st.metric("Movimientos Conciliados", len(st.session_state.df_conciliados))
+        st.download_button("⬇️ Descargar Reporte Completo (Excel)", st.session_state.excel_output, "reporte_conciliacion.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="download_excel")
+    
+    with res_col2:
+        st.metric("Saldos Abiertos (Pendientes)", len(st.session_state.df_saldos_abiertos))
+        st.download_button("⬇️ Descargar Saldos para Próximo Mes (CSV)", st.session_state.csv_output, "saldos_para_proximo_mes.csv", "text/csv", use_container_width=True, key="download_csv")
+        st.info("**Instrucción de Ciclo Mensual:** Para el próximo mes, debe usar el archivo `saldos_para_proximo_mes.csv` como el archivo de 'saldos anteriores'.")
 
     with st.expander("Ver registro detallado del proceso"):
         st.text_area("Log", '\n'.join(st.session_state.log_messages), height=300, key="log_area")
 
-        st.subheader("Previsualización de Saldos Pendientes")
-        st.dataframe(
+    st.subheader("Previsualización de Saldos Pendientes")
+    st.dataframe(
         st.session_state.df_saldos_abiertos,
         column_config={
-            "Fecha": st.column_config.DatetimeColumn(
-                "Fecha",
-                format="DD/MM/YYYY",
-            ),
+            "Fecha": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
             "Débito Bolivar": st.column_config.NumberColumn(format="%.2f"),
             "Crédito Bolivar": st.column_config.NumberColumn(format="%.2f"),
             "Débito Dolar": st.column_config.NumberColumn(format="%.2f"),
             "Crédito Dolar": st.column_config.NumberColumn(format="%.2f"),
-            # Ocultar todas las columnas de trabajo
-            "Monto_BS": None,
-            "Monto_USD": None,
-            "Grupo_Conciliado": None,
-            "Referencia_Normalizada_Literal": None,
-            "Clave_Normalizada": None,
-            "Clave_Grupo": None,
+            "Monto_BS": None, "Monto_USD": None, "Grupo_Conciliado": None,
+            "Referencia_Normalizada_Literal": None, "Clave_Normalizada": None, "Clave_Grupo": None,
         },
-        # Definir el orden exacto de las columnas visibles
         column_order=("Asiento", "Referencia", "Fecha", "Débito Bolivar", "Crédito Bolivar", "Débito Dolar", "Crédito Dolar", "Conciliado"),
         use_container_width=True
-        )
+    )
+
+    st.subheader("Previsualización de Movimientos Conciliados")
+    st.dataframe(
+        st.session_state.df_conciliados,
+        column_config={
+            "Fecha": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
+            "Débito Bolivar": st.column_config.NumberColumn(format="%.2f"),
+            "Crédito Bolivar": st.column_config.NumberColumn(format="%.2f"),
+            "Débito Dolar": st.column_config.NumberColumn(format="%.2f"),
+            "Crédito Dolar": st.column_config.NumberColumn(format="%.2f"),
+            "Grupo_Conciliado": st.column_config.Column("Grupo de Conciliación"),
+            "Monto_BS": None, "Monto_USD": None,
+            "Referencia_Normalizada_Literal": None, "Clave_Normalizada": None, "Clave_Grupo": None,
+        },
+        column_order=("Asiento", "Referencia", "Fecha", "Débito Bolivar", "Crédito Bolivar", "Débito Dolar", "Crédito Dolar", "Grupo_Conciliado"),
+        use_container_width=True
+    )
     
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(
@@ -847,6 +853,7 @@ with res_col2:
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(st.session_state.df_conciliados)
+
 
 
 

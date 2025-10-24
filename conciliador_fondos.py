@@ -770,7 +770,8 @@ if st.session_state.processing_complete:
     with res_col2:
         st.metric("Saldos Abiertos (Pendientes)", len(st.session_state.df_saldos_abiertos))
         st.download_button("⬇️ Descargar Saldos para Próximo Mes (CSV)", st.session_state.csv_output, "saldos_para_proximo_mes.csv", "text/csv", use_container_width=True, key="download_csv")
-        st.info("**Instrucción de Ciclo Mensual:** Para el próximo mes, debe usar el archivo `saldos_para_proximo_mes.csv` como el archivo de 'saldos anteriores'.")
+        
+    st.info("**Instrucción de Ciclo Mensual:** Para el próximo mes, debe usar el archivo `saldos_para_proximo_mes.csv` como el archivo de 'saldos anteriores'.")
 
     # Expander para el log detallado
     with st.expander("Ver registro detallado del proceso"):
@@ -810,6 +811,7 @@ if st.session_state.processing_complete:
         column_order=("Asiento", "Referencia", "Fecha", "Débito Bolivar", "Crédito Bolivar", "Débito Dolar", "Crédito Dolar", "Grupo_Conciliado"),
         use_container_width=True
     )
+
 
 
 

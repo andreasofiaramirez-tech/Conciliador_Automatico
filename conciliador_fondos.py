@@ -832,17 +832,8 @@ if st.session_state.processing_complete:
         column_order=("Asiento", "Referencia", "Fecha", "Débito Bolivar", "Crédito Bolivar", "Débito Dolar", "Crédito Dolar", "Grupo_Conciliado"),
         use_container_width=True
     )
-    
-    st.success("✅ ¡Conciliación completada con éxito!")
-    
-    pass 
-    res_col1, res_col2 = st.columns(2)
-    with res_col1:
-        st.metric("Movimientos Conciliados", len(st.session_state.df_conciliados))
-        st.download_button("⬇️ Descargar Reporte Completo (Excel)", st.session_state.excel_output, "reporte_conciliacion.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-    with res_col2:
-        st.metric("Saldos Abiertos (Pendientes)", len(st.session_state.df_saldos_abiertos))
-        st.download_button("⬇️ Descargar Saldos para Próximo Mes (CSV)", st.session_state.csv_output, "saldos_para_proximo_mes.csv", "text/csv", use_container_width=True)
+
+
 
 
 

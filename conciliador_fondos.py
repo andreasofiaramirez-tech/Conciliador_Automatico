@@ -759,6 +759,8 @@ if check_password():
     # Esta sección solo se muestra si la "bandera" processing_complete es True.
 if st.session_state.processing_complete:
     st.success("✅ ¡Conciliación completada con éxito!")
+
+    pass
     res_col1, res_col2 = st.columns(2, gap="small")
     
 with res_col1:
@@ -845,5 +847,6 @@ with res_col2:
     st.dataframe(st.session_state.df_saldos_abiertos)
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(st.session_state.df_conciliados)
+
 
 

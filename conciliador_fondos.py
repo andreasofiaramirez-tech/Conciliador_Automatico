@@ -36,6 +36,7 @@ if 'processing_complete' not in st.session_state:
 
 # --- (A) Funciones Generales y de Ayuda ---
 TOLERANCIAS_MAX_BS = 2.00 # Constante para el margen de error en Bolívares.
+TOLERANCIA_MAX_USD = 0.50 # Constante para el margen de error en Dólares.
 
 def mapear_columnas(df, log_messages):
     """
@@ -421,7 +422,96 @@ def conciliar_gran_total_final(df, log_messages):
         log_messages.append(f"ℹ️ Fase Final: No se concilió. Suma de remanentes es {suma_gran_total_bs:.2f} Bs.")
         return 0
 
-# --- (C) Funciones Principales de Cada Estrategia ---
+# --- (C) Funciones de Lógica para FONDOS POR DEPOSITAR (USD) ---
+
+# --- (B) NUEVA LÓGICA para FONDOS POR DEPOSITAR (USD) ---
+def normalizar_referencia_fondos_usd(df):
+    df_copy = df.copy()
+    def clasificar_usd(ref_str):
+        if pd.isna(ref_str): return 'OTRO', 'OTRO', ''
+        ref, ref_lit_norm = str(ref_str).upper().strip(), re.sub(r'[^A-Z0-9]', '', str(ref_str).upper())
+        if any(kw in ref for kw in ['DIFERENCIA EN CAMBIO', 'DIF. CAMBIO']): return 'DIF_CAMBIO', 'GRUPO_DIF_CAMBIO', ref_lit_norm
+        if 'GASTOS POR TARJETA' in ref: return 'TARJETA_GASTOS', 'GRUPO_TARJETA', ref_lit_norm
+        if 'NOTA DE DEBITO' in ref or 'NOTA DE CREDITO' in ref: return 'NOTA_GENERAL', 'GRUPO_NOTA', ref_lit_norm
+        return 'OTRO', 'OTRO', ref_lit_norm
+    df_copy[['Clave_Normalizada', 'Clave_Grupo', 'Referencia_Normalizada_Literal']] = df_copy['Referencia'].apply(clasificar_usd).apply(pd.Series)
+    return df_copy
+def conciliar_pares_por_referencia_usd(df, clave_grupo, fase_name, log_messages):
+    df_pendientes = df[(df['Clave_Grupo'] == clave_grupo) & (~df['Conciliado'])].copy()
+    if df_pendientes.empty: return 0
+    log_messages.append(f"\n--- {fase_name} (USD) ---")
+    grupos, total_conciliados = df_pendientes.groupby('Referencia_Normalizada_Literal'), 0
+    for ref_norm, grupo in grupos:
+        if len(grupo) < 2: continue
+        debitos_idx, creditos_idx = grupo[grupo['Monto_USD'] > 0].index.tolist(), grupo[grupo['Monto_USD'] < 0].index.tolist()
+        debitos_usados, creditos_usados = set(), set()
+        for idx_d in debitos_idx:
+            if idx_d in debitos_usados: continue
+            monto_d, mejor_match, mejor_diff = df.loc[idx_d, 'Monto_USD'], None, TOLERANCIA_MAX_USD + 1
+            for idx_c in creditos_idx:
+                if idx_c in creditos_usados: continue
+                diff = abs(monto_d + df.loc[idx_c, 'Monto_USD'])
+                if diff < mejor_diff: mejor_diff, mejor_match = diff, idx_c
+            if mejor_match is not None and mejor_diff <= TOLERANCIA_MAX_USD:
+                asientos = (df.loc[idx_d, 'Asiento'], df.loc[mejor_match, 'Asiento'])
+                df.loc[[idx_d, mejor_match], ['Conciliado', 'Grupo_Conciliado']] = [True, f'PAR_REF_{ref_norm[:10]}_{asientos[1]}'], [True, f'PAR_REF_{ref_norm[:10]}_{asientos[0]}']
+                total_conciliados += 2
+                debitos_usados.add(idx_d)
+                creditos_usados.add(mejor_match)
+    if total_conciliados > 0: log_messages.append(f"✔️ {fase_name}: {total_conciliados} movimientos conciliados.")
+    return total_conciliados
+def conciliar_automaticos_usd(df, log_messages):
+    """
+    Busca movimientos de Diferencial Cambiario o Ajustes y los concilia
+    automáticamente. Esta lógica no depende de la moneda.
+    """
+    total = 0
+    for grupo, etiqueta in [('GRUPO_DIF_CAMBIO', 'AUTOMATICO_DIF_CAMBIO'), ('GRUPO_AJUSTE', 'AUTOMATICO_AJUSTE')]:
+        indices = df[(df['Clave_Grupo'] == grupo) & (~df['Conciliado'])].index
+        if not indices.empty:
+            df.loc[indices, ['Conciliado', 'Grupo_Conciliado']] = [True, etiqueta]
+            log_messages.append(f"✔️ Fase Auto (USD): {len(indices)} conciliados por ser '{etiqueta}'.")
+            total += len(indices)
+    return total
+def conciliar_lote_por_grupo_usd(df, clave_grupo, fase_name, log_messages):
+    df_pendientes = df[(~df['Conciliado']) & (df['Clave_Grupo'] == clave_grupo)].copy()
+    if len(df_pendientes) > 1 and abs(df_pendientes['Monto_USD'].sum()) <= TOLERANCIA_MAX_USD:
+        grupo_id = f"LOTE_{clave_grupo.replace('GRUPO_', '')}_{df_pendientes['Fecha'].max().strftime('%Y%m%d')}"
+        df.loc[df_pendientes.index, ['Conciliado', 'Grupo_Conciliado']] = [True, grupo_id]
+        log_messages.append(f"✔️ {fase_name}: {len(df_pendientes.index)} movimientos conciliados como lote.")
+        return len(df_pendientes.index)
+    return 0
+def conciliar_pares_globales_remanentes_usd(df, log_messages):
+    log_messages.append("\n--- FASE GLOBAL 1-a-1 (USD) ---")
+    df_pendientes = df[~df['Conciliado']].copy()
+    if len(df_pendientes) < 2: return 0
+    debitos, creditos = df_pendientes[df_pendientes['Monto_USD'] > 0].index.tolist(), df_pendientes[df_pendientes['Monto_USD'] < 0].index.tolist()
+    total_conciliados, creditos_usados = 0, set()
+    for idx_d in debitos:
+        monto_d, mejor_match, mejor_diff = df.loc[idx_d, 'Monto_USD'], None, TOLERANCIA_MAX_USD + 1
+        for idx_c in creditos:
+            if idx_c in creditos_usados: continue
+            diff = abs(monto_d + df.loc[idx_c, 'Monto_USD'])
+            if diff < mejor_diff: mejor_diff, mejor_match = diff, idx_c
+        if mejor_match is not None and mejor_diff <= TOLERANCIA_MAX_USD:
+            asientos = (df.loc[idx_d, 'Asiento'], df.loc[mejor_match, 'Asiento'])
+            df.loc[[idx_d, mejor_match], 'Conciliado'], df.loc[idx_d, 'Grupo_Conciliado'], df.loc[mejor_match, 'Grupo_Conciliado'] = True, f'PAR_GLOBAL_{asientos[1]}', f'PAR_GLOBAL_{asientos[0]}'
+            creditos_usados.add(mejor_match)
+            total_conciliados += 2
+    if total_conciliados > 0: log_messages.append(f"✔️ Fase Global: {total_conciliados} movimientos conciliados.")
+    return total_conciliados
+def conciliar_gran_total_final_usd(df, log_messages):
+    log_messages.append("\n--- FASE FINAL (USD) ---")
+    df_pendientes = df[~df['Conciliado']]
+    if not df_pendientes.empty and abs(df_pendientes['Monto_USD'].sum()) <= TOLERANCIA_MAX_USD:
+        df.loc[df_pendientes.index, ['Conciliado', 'Grupo_Conciliado']] = [True, "LOTE_GRAN_TOTAL_FINAL"]
+        log_messages.append(f"✔️ Fase Final: ¡Éxito! {len(df_pendientes.index)} remanentes conciliados.")
+        return len(df_pendientes.index)
+    return 0
+
+
+
+# --- (D) Funciones Principales de Cada Estrategia ---
 def run_conciliation_fondos_en_transito (df, log_messages):
     """
     Esta es la función "maestra" para la cuenta Fondos en Tránsito.
@@ -474,6 +564,19 @@ def run_conciliation_fondos_en_transito (df, log_messages):
     log_messages.append("\n--- PROCESO DE CONCILIACIÓN FINALIZADO ---")
     return df
 
+def run_conciliation_fondos_por_depositar(df, log_messages):
+    log_messages.append("\n--- INICIANDO LÓGICA DE FONDOS POR DEPOSITAR (USD) ---")
+    df = normalizar_referencia_fondos_usd(df)
+    conciliar_automaticos_usd(df, log_messages) # Esta función es reutilizable
+    conciliar_pares_por_referencia_usd(df, 'GRUPO_NOTA', 'FASE NOTAS (Pares por Ref.)', log_messages)
+    conciliar_lote_por_grupo_usd(df, 'GRUPO_NOTA', 'FASE NOTAS (Lote de Grupo)', log_messages)
+    conciliar_pares_por_referencia_usd(df, 'GRUPO_TARJETA', 'FASE TARJETAS (Pares por Ref.)', log_messages)
+    conciliar_lote_por_grupo_usd(df, 'GRUPO_TARJETA', 'FASE TARJETAS (Lote de Grupo)', log_messages)
+    conciliar_pares_globales_remanentes_usd(df, log_messages)
+    conciliar_gran_total_final_usd(df, log_messages)
+    log_messages.append("\n--- PROCESO DE CONCILIACIÓN FINALIZADO ---")
+    return df
+
 def run_conciliation_devoluciones_proveedores(df, log_messages):
     """
     Contendrá la secuencia de llamadas de conciliación para Devoluciones a Proveedores.
@@ -498,6 +601,11 @@ ESTRATEGIAS = {
         "label_anterior": "Saldos anteriores (Fondos en Tránsito)",
         "columnas_reporte": ['Asiento', 'Referencia', 'Fecha', 'Monto Dólar', 'Tasa', 'Bs.'],
         "nombre_hoja_excel": "111.04.1001"
+    },
+    "111.04.6001 - Fondos por Depositar - ME": {
+        "id": "fondos_depositar", "funcion_principal": run_conciliation_fondos_por_depositar,
+        "label_actual": "Movimientos del mes (Fondos por Depositar)", "label_anterior": "Saldos anteriores (Fondos por Depositar)",
+        "columnas_reporte": ['Asiento', 'Referencia', 'Fecha', 'Monto Dólar', 'Tasa', 'Bs.'], "nombre_hoja_excel": "111.04.6001"
     },
     "212.07.6009 - Devoluciones a Proveedores": {
         "id": "devoluciones_proveedores",

@@ -849,10 +849,6 @@ if st.session_state.processing_complete:
     with st.expander("Ver registro detallado del proceso"):
         st.text_area("Log", '\n'.join(st.session_state.log_messages), height=300)
 
-    st.subheader("Previsualización de Saldos Pendientes")
-    st.dataframe(st.session_state.df_saldos_abiertos)
-    st.subheader("Previsualización de Movimientos Conciliados")
-    st.dataframe(st.session_state.df_conciliados)
 
 
 

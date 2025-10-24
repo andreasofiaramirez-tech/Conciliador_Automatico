@@ -760,7 +760,7 @@ if check_password():
 if st.session_state.processing_complete:
     st.success("✅ ¡Conciliación completada con éxito!")
     
-    # La línea que define las columnas debe estar aquí
+    # Columnas para las métricas y botones de descarga
     res_col1, res_col2 = st.columns(2, gap="small")
 
     with res_col1:
@@ -772,9 +772,11 @@ if st.session_state.processing_complete:
         st.download_button("⬇️ Descargar Saldos para Próximo Mes (CSV)", st.session_state.csv_output, "saldos_para_proximo_mes.csv", "text/csv", use_container_width=True, key="download_csv")
         st.info("**Instrucción de Ciclo Mensual:** Para el próximo mes, debe usar el archivo `saldos_para_proximo_mes.csv` como el archivo de 'saldos anteriores'.")
 
+    # Expander para el log detallado
     with st.expander("Ver registro detallado del proceso"):
         st.text_area("Log", '\n'.join(st.session_state.log_messages), height=300, key="log_area")
 
+    # Previsualización de Saldos Pendientes (SOLO UNA VEZ)
     st.subheader("Previsualización de Saldos Pendientes")
     st.dataframe(
         st.session_state.df_saldos_abiertos,
@@ -791,6 +793,7 @@ if st.session_state.processing_complete:
         use_container_width=True
     )
 
+    # Previsualización de Movimientos Conciliados (SOLO UNA VEZ)
     st.subheader("Previsualización de Movimientos Conciliados")
     st.dataframe(
         st.session_state.df_conciliados,
@@ -807,32 +810,6 @@ if st.session_state.processing_complete:
         column_order=("Asiento", "Referencia", "Fecha", "Débito Bolivar", "Crédito Bolivar", "Débito Dolar", "Crédito Dolar", "Grupo_Conciliado"),
         use_container_width=True
     )
-    
-    st.subheader("Previsualización de Movimientos Conciliados")
-    st.dataframe(
-        st.session_state.df_conciliados,
-        column_config={
-            "Fecha": st.column_config.DatetimeColumn(
-                "Fecha",
-                format="DD/MM/YYYY",
-            ),
-            "Débito Bolivar": st.column_config.NumberColumn(format="%.2f"),
-            "Crédito Bolivar": st.column_config.NumberColumn(format="%.2f"),
-            "Débito Dolar": st.column_config.NumberColumn(format="%.2f"),
-            "Crédito Dolar": st.column_config.NumberColumn(format="%.2f"),
-            # Renombrar la columna del grupo para que sea más clara
-            "Grupo_Conciliado": st.column_config.Column("Grupo de Conciliación"),
-            # Ocultar las columnas de trabajo
-            "Monto_BS": None,
-            "Monto_USD": None,
-            "Referencia_Normalizada_Literal": None,
-            "Clave_Normalizada": None,
-            "Clave_Grupo": None,
-        },
-        column_order=("Asiento", "Referencia", "Fecha", "Débito Bolivar", "Crédito Bolivar", "Débito Dolar", "Crédito Dolar", "Grupo_Conciliado"),
-        use_container_width=True
-    )
-
 
 
 

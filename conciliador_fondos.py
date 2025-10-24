@@ -44,10 +44,10 @@ def mapear_columnas(df, log_messages):
     y los renombra a un formato estándar que el resto del programa pueda entender.
     Ignora las columnas que no reconoce.
     """
-    DEBITO_SYNONYMS = ['debito', 'debitos', 'débito', 'débitos']
-    CREDITO_SYNONYMS = ['credito', 'creditos', 'crédito', 'créditos']
-    BS_SYNONYMS = ['ves', 'bolivar', 'bolívar', 'local']
-    USD_SYNONYMS = ['dolar', 'dólar', 'dólares', 'usd', 'dolares']
+    DEBITO_SYNONYMS = ['debito', 'debitos', 'débito', 'débitos', 'debe']
+    CREDITO_SYNONYMS = ['credito', 'creditos', 'crédito', 'créditos', 'haber']
+    BS_SYNONYMS = ['ves', 'bolivar', 'bolívar', 'local', 'bs']
+    USD_SYNONYMS = ['dolar', 'dólar', 'dólares', 'usd', 'dolares', 'me']
 
     REQUIRED_COLUMNS = {
         'Débito Bolivar': (DEBITO_SYNONYMS, BS_SYNONYMS),
@@ -105,19 +105,38 @@ def cargar_y_limpiar_datos(uploaded_actual, uploaded_anterior, log_messages):
 
         for col in columnas_montos:
             if col in df.columns:
-                # Si la columna ya es numérica (leída correctamente por Excel), solo la redondeamos y continuamos.
                 if pd.api.types.is_numeric_dtype(df[col]):
                     df[col] = df[col].round(2)
                     continue
+
+                def limpiar_numero_flexible(texto):
+                    """
+                    Limpia un string de número, detectando si el formato es
+                    europeo (1.234,56) o americano (1,234.56).
+                    """
+                    texto_limpio = str(texto).strip()
+                    
+                    # Contamos los separadores para tomar una decisión informada
+                    num_puntos = texto_limpio.count('.')
+                    num_comas = texto_limpio.count(',')
+
+                    # Formato europeo detectado (ej: 1.234,56 o solo 1,23)
+                    if num_comas == 1 and num_puntos >= 0:
+                        # Quitar separadores de miles (.) y reemplazar coma decimal (,) por punto
+                        return texto_limpio.replace('.', '').replace(',', '.')
+                    
+                    # Formato americano detectado (ej: 1,234.56)
+                    elif num_puntos == 1 and num_comas >= 1:
+                        # Quitar separadores de miles (,)
+                        return texto_limpio.replace(',', '')
+                        
+                    # Si no hay comas, asumimos que es un formato simple (ej: 1234.56)
+                    return texto_limpio
+
+                # Aplicamos la nueva función de limpieza inteligente
+                temp_serie = df[col].apply(limpiar_numero_flexible)
                 
-                # Si la columna es texto, aplicamos la lógica de limpieza segura.
-                # Convertimos todo a string para un tratamiento uniforme.
-                temp_serie = df[col].astype(str).str.strip()
-                
-                # Lógica segura: primero quitar separadores de miles (.), luego cambiar coma decimal (,) por punto.
-                temp_serie = temp_serie.str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
-                
-                # Convertimos a numérico. El 'errors='coerce'' maneja cualquier valor que no se pueda convertir.
+                # El resto del proceso es el mismo
                 df[col] = pd.to_numeric(temp_serie, errors='coerce').fillna(0.0).round(2)
         
         return df
@@ -460,6 +479,7 @@ def conciliar_pares_por_referencia_usd(df, clave_grupo, fase_name, log_messages)
                 creditos_usados.add(mejor_match)
     if total_conciliados > 0: log_messages.append(f"✔️ {fase_name}: {total_conciliados} movimientos conciliados.")
     return total_conciliados
+
 def conciliar_automaticos_usd(df, log_messages):
     """
     Busca movimientos de Diferencial Cambiario o Ajustes y los concilia
@@ -473,6 +493,7 @@ def conciliar_automaticos_usd(df, log_messages):
             log_messages.append(f"✔️ Fase Auto (USD): {len(indices)} conciliados por ser '{etiqueta}'.")
             total += len(indices)
     return total
+
 def conciliar_lote_por_grupo_usd(df, clave_grupo, fase_name, log_messages):
     df_pendientes = df[(~df['Conciliado']) & (df['Clave_Grupo'] == clave_grupo)].copy()
     if len(df_pendientes) > 1 and abs(df_pendientes['Monto_USD'].sum()) <= TOLERANCIA_MAX_USD:
@@ -481,6 +502,7 @@ def conciliar_lote_por_grupo_usd(df, clave_grupo, fase_name, log_messages):
         log_messages.append(f"✔️ {fase_name}: {len(df_pendientes.index)} movimientos conciliados como lote.")
         return len(df_pendientes.index)
     return 0
+
 def conciliar_pares_globales_remanentes_usd(df, log_messages):
     log_messages.append("\n--- FASE GLOBAL 1-a-1 (USD) ---")
     df_pendientes = df[~df['Conciliado']].copy()
@@ -500,6 +522,7 @@ def conciliar_pares_globales_remanentes_usd(df, log_messages):
             total_conciliados += 2
     if total_conciliados > 0: log_messages.append(f"✔️ Fase Global: {total_conciliados} movimientos conciliados.")
     return total_conciliados
+
 def conciliar_gran_total_final_usd(df, log_messages):
     log_messages.append("\n--- FASE FINAL (USD) ---")
     df_pendientes = df[~df['Conciliado']]
@@ -568,6 +591,7 @@ def run_conciliation_fondos_por_depositar(df, log_messages):
     log_messages.append("\n--- INICIANDO LÓGICA DE FONDOS POR DEPOSITAR (USD) ---")
     df = normalizar_referencia_fondos_usd(df)
     conciliar_automaticos_usd(df, log_messages) # Esta función es reutilizable
+    conciliar_diferencia_cambio(df, log_messages)
     conciliar_pares_por_referencia_usd(df, 'GRUPO_NOTA', 'FASE NOTAS (Pares por Ref.)', log_messages)
     conciliar_lote_por_grupo_usd(df, 'GRUPO_NOTA', 'FASE NOTAS (Lote de Grupo)', log_messages)
     conciliar_pares_por_referencia_usd(df, 'GRUPO_TARJETA', 'FASE TARJETAS (Pares por Ref.)', log_messages)

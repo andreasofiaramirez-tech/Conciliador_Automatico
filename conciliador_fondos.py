@@ -553,7 +553,71 @@ def conciliar_gran_total_final_usd(df, log_messages):
         return len(df_pendientes.index)
     return 0
 
+def conciliar_grupos_complejos_usd(df, log_messages):
+    """
+    Busca combinaciones complejas (1-a-N, N-a-1) dentro de los movimientos
+    pendientes, usando los montos en USD.
+    """
+    log_messages.append("\n--- FASE GRUPOS COMPLEJOS (USD) ---")
+    total_conciliados_fase = 0
+    
+    # Bucle para repetir el proceso hasta que no se encuentren más combinaciones
+    while True:
+        continuar_ciclo = False
+        df_pendientes = df.loc[~df['Conciliado']]
+        
+        if len(df_pendientes) < 2:
+            break
 
+        debitos = df_pendientes[df_pendientes['Monto_USD'] > 0]
+        creditos = df_pendientes[df_pendientes['Monto_USD'] < 0]
+
+        if debitos.empty or creditos.empty:
+            break
+
+        # Búsqueda de N-créditos que igualen a 1-débito
+        for d_idx, d_row in debitos.iterrows():
+            target = d_row['Monto_USD']
+            # Limitar el tamaño de las combinaciones por rendimiento (ej: hasta 7)
+            for i in range(2, min(len(creditos) + 1, 8)): 
+                for combo_c_indices in combinations(creditos.index, i):
+                    suma_combinacion = creditos.loc[list(combo_c_indices), 'Monto_USD'].sum()
+                    if abs(target + suma_combinacion) <= TOLERANCIA_MAX_USD:
+                        indices_a_conciliar = list(combo_c_indices) + [d_idx]
+                        grupo_id = f"GRUPO_COMPLEJO_1-N_{d_row['Asiento']}"
+                        df.loc[indices_a_conciliar, ['Conciliado', 'Grupo_Conciliado']] = [True, grupo_id]
+                        total_conciliados_fase += len(indices_a_conciliar)
+                        continuar_ciclo = True
+                        break
+                if continuar_ciclo: break
+            if continuar_ciclo: break
+        
+        if continuar_ciclo:
+            continue # Reinicia el bucle while para re-evaluar los pendientes
+
+        # Búsqueda de N-débitos que igualen a 1-crédito
+        for c_idx, c_row in creditos.iterrows():
+            target = abs(c_row['Monto_USD'])
+            for i in range(2, min(len(debitos) + 1, 8)):
+                for combo_d_indices in combinations(debitos.index, i):
+                    suma_combinacion = debitos.loc[list(combo_d_indices), 'Monto_USD'].sum()
+                    if abs(suma_combinacion - target) <= TOLERANCIA_MAX_USD:
+                        indices_a_conciliar = list(combo_d_indices) + [c_idx]
+                        grupo_id = f"GRUPO_COMPLEJO_N-1_{c_row['Asiento']}"
+                        df.loc[indices_a_conciliar, ['Conciliado', 'Grupo_Conciliado']] = [True, grupo_id]
+                        total_conciliados_fase += len(indices_a_conciliar)
+                        continuar_ciclo = True
+                        break
+                if continuar_ciclo: break
+            if continuar_ciclo: break
+
+        if not continuar_ciclo:
+            break # Si no se encontró ninguna combinación, termina el bucle
+            
+    if total_conciliados_fase > 0:
+        log_messages.append(f"✔️ {total_conciliados_fase} movimientos conciliados en grupos complejos.")
+        
+    return total_conciliados_fase
 
 # --- (D) Funciones Principales de Cada Estrategia ---
 def run_conciliation_fondos_en_transito (df, log_messages):
@@ -612,27 +676,27 @@ def run_conciliation_fondos_por_depositar(df, log_messages):
     log_messages.append("\n--- INICIANDO LÓGICA DE FONDOS POR DEPOSITAR (USD) ---")
     df = normalizar_referencia_fondos_usd(df)
     
-    # Fases automáticas: esta función maneja el diferencial.
+    # Fases automáticas
     conciliar_automaticos_usd(df, log_messages) 
     
-    # Fases por grupo (USD)
-    # Creamos una lista de los grupos a procesar para que el código sea más limpio.
+    # Fases por grupo (lógicas simples)
     grupos_a_procesar = [
-        ('GRUPO_NOTA', 'NOTAS'),
-        ('GRUPO_TARJETA', 'TARJETAS'),
-        ('GRUPO_BANCO', 'BANCO A BANCO'),
-        ('GRUPO_TRASPASO', 'TRASPASOS'),
-        ('GRUPO_BANCARIZACION', 'BANCARIZACION'),
-        ('GRUPO_REINTEGRO', 'REINTEGROS'),
+        ('GRUPO_NOTA', 'NOTAS'), ('GRUPO_TARJETA', 'TARJETAS'),
+        ('GRUPO_BANCO', 'BANCO A BANCO'), ('GRUPO_TRASPASO', 'TRASPASOS'),
+        ('GRUPO_BANCARIZACION', 'BANCARIZACION'), ('GRUPO_REINTEGRO', 'REINTEGROS'),
         ('GRUPO_REMESA', 'REMESAS')
     ]
-
-    # Procesamos cada grupo con las mismas dos lógicas de conciliación.
     for clave_grupo, nombre_fase in grupos_a_procesar:
         conciliar_pares_por_referencia_usd(df, clave_grupo, f'FASE {nombre_fase} (Pares por Ref.)', log_messages)
         conciliar_lote_por_grupo_usd(df, clave_grupo, f'FASE {nombre_fase} (Lote de Grupo)', log_messages)
     
-    # Fases Globales (USD) - Se ejecutan al final sobre todo lo que quede pendiente
+    # --- INICIO DE LA CORRECCIÓN ---
+    # NUEVA FASE: Búsqueda de subconjuntos perfectos como el que encontraste.
+    # Se aplica a TODOS los pendientes que hayan quedado.
+    conciliar_grupos_complejos_usd(df, log_messages)
+    # --- FIN DE LA CORRECCIÓN ---
+    
+    # Fases Globales (USD) - Se ejecutan al final sobre los remanentes más difíciles
     conciliar_pares_globales_remanentes_usd(df, log_messages)
     conciliar_gran_total_final_usd(df, log_messages)
     
@@ -986,6 +1050,7 @@ if st.session_state.processing_complete:
         column_order=("Asiento", "Referencia", "Fecha", "Débito Bolivar", "Crédito Bolivar", "Débito Dolar", "Crédito Dolar", "Grupo_Conciliado"),
         use_container_width=True
     )
+
 
 
 

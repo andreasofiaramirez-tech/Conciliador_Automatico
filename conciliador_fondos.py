@@ -105,38 +105,19 @@ def cargar_y_limpiar_datos(uploaded_actual, uploaded_anterior, log_messages):
 
         for col in columnas_montos:
             if col in df.columns:
-                if pd.api.types.is_numeric_dtype(df[col]):
-                    df[col] = df[col].round(2)
-                    continue
+                df[col] = df[col].astype(str)
 
                 def limpiar_numero_flexible(texto):
-                    """
-                    Limpia un string de número, detectando si el formato es
-                    europeo (1.234,56) o americano (1,234.56).
-                    """
-                    texto_limpio = str(texto).strip()
-                    
-                    # Contamos los separadores para tomar una decisión informada
+                    texto_limpio = texto.strip()
                     num_puntos = texto_limpio.count('.')
                     num_comas = texto_limpio.count(',')
-
-                    # Formato europeo detectado (ej: 1.234,56 o solo 1,23)
                     if num_comas == 1 and num_puntos >= 0:
-                        # Quitar separadores de miles (.) y reemplazar coma decimal (,) por punto
                         return texto_limpio.replace('.', '').replace(',', '.')
-                    
-                    # Formato americano detectado (ej: 1,234.56)
                     elif num_puntos == 1 and num_comas >= 1:
-                        # Quitar separadores de miles (,)
                         return texto_limpio.replace(',', '')
-                        
-                    # Si no hay comas, asumimos que es un formato simple (ej: 1234.56)
                     return texto_limpio
 
-                # Aplicamos la nueva función de limpieza inteligente
                 temp_serie = df[col].apply(limpiar_numero_flexible)
-                
-                # El resto del proceso es el mismo
                 df[col] = pd.to_numeric(temp_serie, errors='coerce').fillna(0.0).round(2)
         
         return df
@@ -590,14 +571,20 @@ def run_conciliation_fondos_en_transito (df, log_messages):
 def run_conciliation_fondos_por_depositar(df, log_messages):
     log_messages.append("\n--- INICIANDO LÓGICA DE FONDOS POR DEPOSITAR (USD) ---")
     df = normalizar_referencia_fondos_usd(df)
-    conciliar_automaticos_usd(df, log_messages) # Esta función es reutilizable
-    conciliar_diferencia_cambio(df, log_messages)
+    
+    # Fases automáticas: esta función maneja tanto el diferencial como los ajustes.
+    conciliar_automaticos_usd(df, log_messages) 
+    
+    # Fases por grupo (USD)
     conciliar_pares_por_referencia_usd(df, 'GRUPO_NOTA', 'FASE NOTAS (Pares por Ref.)', log_messages)
     conciliar_lote_por_grupo_usd(df, 'GRUPO_NOTA', 'FASE NOTAS (Lote de Grupo)', log_messages)
     conciliar_pares_por_referencia_usd(df, 'GRUPO_TARJETA', 'FASE TARJETAS (Pares por Ref.)', log_messages)
     conciliar_lote_por_grupo_usd(df, 'GRUPO_TARJETA', 'FASE TARJETAS (Lote de Grupo)', log_messages)
+    
+    # Fases Globales (USD)
     conciliar_pares_globales_remanentes_usd(df, log_messages)
     conciliar_gran_total_final_usd(df, log_messages)
+    
     log_messages.append("\n--- PROCESO DE CONCILIACIÓN FINALIZADO ---")
     return df
 
@@ -948,6 +935,7 @@ if st.session_state.processing_complete:
         column_order=("Asiento", "Referencia", "Fecha", "Débito Bolivar", "Crédito Bolivar", "Débito Dolar", "Crédito Dolar", "Grupo_Conciliado"),
         use_container_width=True
     )
+
 
 
 

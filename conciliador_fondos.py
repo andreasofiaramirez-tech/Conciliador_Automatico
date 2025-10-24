@@ -844,11 +844,6 @@ if st.session_state.processing_complete:
         st.metric("Saldos Abiertos (Pendientes)", len(st.session_state.df_saldos_abiertos))
         st.download_button("⬇️ Descargar Saldos para Próximo Mes (CSV)", st.session_state.csv_output, "saldos_para_proximo_mes.csv", "text/csv", use_container_width=True)
 
-    st.info("**Instrucción de Ciclo Mensual:** Para el próximo mes, debe usar el archivo `saldos_para_proximo_mes.csv` como el archivo de 'saldos anteriores'.")
-
-    with st.expander("Ver registro detallado del proceso"):
-        st.text_area("Log", '\n'.join(st.session_state.log_messages), height=300)
-
 
 
 
